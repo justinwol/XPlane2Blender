@@ -124,8 +124,8 @@ class RainSystemValidator:
     
     def _validate_thermal_system(self):
         """Validate thermal system settings"""
-        if self.xplane_version < 1210:
-            return  # Thermal system requires X-Plane 12.1+
+        if self.xplane_version < 1200:
+            return  # Thermal system requires X-Plane 12.0+
         
         enabled_sources = [i for i in range(1, 5) if getattr(self.rain_props, f"thermal_source_{i}_enabled")]
         
@@ -186,6 +186,17 @@ class RainSystemValidator:
             )
         elif self.rain_props.validation_check_datarefs:
             self._validate_dataref_format(thermal_source.dataref_on_off, f"thermal_source_{source_num}_onoff")
+        
+        # Validate temperature dataref for X-Plane 12.0 compatibility
+        if self.xplane_version < 1210:
+            if not thermal_source.temperature_dataref:
+                self._add_error(
+                    "thermal",
+                    f"Thermal source #{source_num} requires temperature dataref for X-Plane 12.0 compatibility",
+                    "Specify a dataref that provides temperature value or upgrade to X-Plane 12.1+"
+                )
+            elif self.rain_props.validation_check_datarefs:
+                self._validate_dataref_format(thermal_source.temperature_dataref, f"thermal_source_{source_num}_temperature")
     
     def _validate_wiper_system(self):
         """Validate wiper system settings"""

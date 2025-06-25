@@ -126,6 +126,7 @@ class XPlaneHeader:
         ]
         for rain_header_attr in rain_header_attrs:
             self.attributes.add(XPlaneAttribute(rain_header_attr))
+        self.attributes.add(XPlaneAttribute("THERMAL_source"))
         self.attributes.add(XPlaneAttribute("THERMAL_source2"))
         self.attributes.add(XPlaneAttribute("WIPER_param"))
 
@@ -146,6 +147,15 @@ class XPlaneHeader:
         self.attributes.add(XPlaneAttribute("BUMP_LEVEL", None))
         self.attributes.add(XPlaneAttribute("NO_BLEND", None))
         self.attributes.add(XPlaneAttribute("SPECULAR", None))
+
+        # Phase 4 Standard Shading Commands
+        self.attributes.add(XPlaneAttribute("DECAL", None))
+        self.attributes.add(XPlaneAttribute("DECAL_RGBA", None))
+        self.attributes.add(XPlaneAttribute("DECAL_KEYED", None))
+        self.attributes.add(XPlaneAttribute("TEXTURE_TILE", None))
+        self.attributes.add(XPlaneAttribute("NORMAL_DECAL", None))
+        self.attributes.add(XPlaneAttribute("DITHER_ALPHA", None))
+        self.attributes.add(XPlaneAttribute("NO_ALPHA", None))
 
         self.attributes.add(XPlaneAttribute(XPlaneAttributeName("DECAL_LIB", 2), None))
         self.attributes.add(XPlaneAttribute(XPlaneAttributeName("DECAL_PARAMS", 2), None))
@@ -442,6 +452,9 @@ class XPlaneHeader:
             # Enhanced Modern Texture System (TEXTURE_MAP) export
             self._export_modern_texture_maps(exportdir, xplane_version)
             
+            # Export Phase 4 Standard Shading commands
+            self._export_standard_shading_commands(exportdir, xplane_version)
+            
             # Traditional texture map support (X-Plane 12+ compatible)
             if self.xplaneFile.options.texture_map_normal != "":
                 try:
@@ -525,7 +538,7 @@ class XPlaneHeader:
             # Run comprehensive validation
             run_rain_validation()
 
-            if xplane_version >= 1210 and (isAircraft or isCockpit):
+            if xplane_version >= 1200 and (isAircraft or isCockpit):
                 if has_thermal_sources and not rain_props.thermal_texture:
                     logger.warn(
                         f"{filename}: Must have Thermal Texture to use Thermal Sources"
@@ -550,7 +563,7 @@ class XPlaneHeader:
                     logger.warn(f"{filename}: Must have Wiper Texture to use Wipers")
                     
             if (
-                xplane_version >= 1210 and (isAircraft or isCockpit) and has_thermal_system
+                xplane_version >= 1200 and (isAircraft or isCockpit) and has_thermal_system
             ):
                 if rain_props.thermal_texture:
                     self.attributes["THERMAL_texture"].setValue(
@@ -575,6 +588,11 @@ class XPlaneHeader:
                 # simultaneous mode doesn't need special ordering
                 
                 thermal_sources_exported = 0
+                
+                # Determine which thermal command to use based on X-Plane version
+                use_thermal_source2 = xplane_version >= 1210
+                thermal_command = "THERMAL_source2" if use_thermal_source2 else "THERMAL_source"
+                
                 for i in enabled_sources:
                     thermal_source = getattr(rain_props, f"thermal_source_{i}")
                     
@@ -610,21 +628,41 @@ class XPlaneHeader:
                         if not thermal_source.dataref_on_off.replace("_", "").replace("/", "").replace("[", "").replace("]", "").replace(".", "").isalnum():
                             logger.warn(f"{filename}'s Thermal Source #{i} dataref format may be invalid")
 
-                    if self.attributes["THERMAL_source2"].getValue() == None:
-                        self.attributes["THERMAL_source2"].removeValues()
-                    self.attributes["THERMAL_source2"].addValue(
-                        (
-                            i - 1,
-                            defrost_time,
-                            thermal_source.dataref_on_off
+                    if use_thermal_source2:
+                        # X-Plane 12.1+ THERMAL_source2 format: index, heat_in_celsius, toggle_dataref
+                        if self.attributes["THERMAL_source2"].getValue() == None:
+                            self.attributes["THERMAL_source2"].removeValues()
+                        self.attributes["THERMAL_source2"].addValue(
+                            (
+                                i - 1,
+                                defrost_time,
+                                thermal_source.dataref_on_off
+                            )
                         )
-                    )
+                    else:
+                        # X-Plane 12.0-12.0.x THERMAL_source format: temperature_dataref, toggle_dataref
+                        if not thermal_source.temperature_dataref:
+                            logger.error(
+                                f"{filename}'s Thermal Source #{i} requires temperature dataref for X-Plane 12.0 compatibility"
+                            )
+                            continue
+                            
+                        if self.attributes["THERMAL_source"].getValue() == None:
+                            self.attributes["THERMAL_source"].removeValues()
+                        self.attributes["THERMAL_source"].addValue(
+                            (
+                                thermal_source.temperature_dataref,
+                                thermal_source.dataref_on_off
+                            )
+                        )
+                    
                     thermal_sources_exported += 1
 
                 if thermal_sources_exported == 0:
                     logger.error(f"{filename}'s Rain System must have at least 1 enabled Thermal Source")
                 elif rain_props.error_reporting_level in ["verbose", "debug"]:
-                    logger.info(f"{filename}: Exported {thermal_sources_exported} thermal sources with {rain_props.thermal_source_priority} priority")
+                    command_type = "THERMAL_source2" if use_thermal_source2 else "THERMAL_source"
+                    logger.info(f"{filename}: Exported {thermal_sources_exported} thermal sources using {command_type} with {rain_props.thermal_source_priority} priority")
 
             if (
                 xplane_version >= 1200 and (isAircraft or isCockpit) and has_wiper_system
@@ -1071,49 +1109,61 @@ class XPlaneHeader:
                 write_user_specular_values = False  # It will be skipped from now on
 
         if xplane_version >= 1200:
-            luminance = (
-                self.xplaneFile.options.luminance
-                if self.xplaneFile.options.luminance_override
-                else None
-            )
-            self.attributes["GLOBAL_luminance"].setValue(luminance)
+            # Enhanced luminance handling with proper clamping
+            if self.xplaneFile.options.luminance_override:
+                luminance_value = self.xplaneFile.options.luminance
+                # Clamp luminance to valid range (0-65530 nts)
+                if luminance_value is not None:
+                    luminance_value = max(0, min(65530, luminance_value))
+                self.attributes["GLOBAL_luminance"].setValue(luminance_value)
 
         # v1000
         if xplane_version >= 1000:
-            if (
-                self.xplaneFile.options.export_type == EXPORT_TYPE_INSTANCED_SCENERY
-                and self.xplaneFile.referenceMaterials[0]
-            ):
+            # Enhanced global state management for all export types
+            if self.xplaneFile.referenceMaterials[0]:
                 mat = self.xplaneFile.referenceMaterials[0]
 
-                # no blend
+                # Enhanced no blend handling - works for all export types
                 attr = mat.attributes["ATTR_no_blend"]
-                if attr.getValue():
+                if attr.getValue() and (
+                    self.xplaneFile.options.export_type == EXPORT_TYPE_INSTANCED_SCENERY
+                    or isAircraft or isCockpit
+                ):
                     self.attributes["GLOBAL_no_blend"].setValue(attr.getValue())
                     self.xplaneFile.commands.written["ATTR_no_blend"] = attr.getValue()
 
-                # shadow blend
+                # Enhanced shadow blend handling - works for all export types
                 attr = mat.attributes["ATTR_shadow_blend"]
-                if attr.getValue():
+                if attr.getValue() and (
+                    self.xplaneFile.options.export_type == EXPORT_TYPE_INSTANCED_SCENERY
+                    or isAircraft or isCockpit
+                ):
                     self.attributes["GLOBAL_shadow_blend"].setValue(attr.getValue())
                     self.xplaneFile.commands.written[
                         "ATTR_shadow_blend"
                     ] = attr.getValue()
 
-                # specular
+                # Enhanced specular handling
                 attr = mat.attributes["ATTR_shiny_rat"]
-                if write_user_specular_values and attr.getValue():
+                if write_user_specular_values and attr.getValue() and (
+                    self.xplaneFile.options.export_type == EXPORT_TYPE_INSTANCED_SCENERY
+                    or isAircraft or isCockpit
+                ):
                     self.attributes["GLOBAL_specular"].setValue(attr.getValue())
                     self.xplaneFile.commands.written["ATTR_shiny_rat"] = attr.getValue()
 
-                # tint
-                if self.xplaneFile.options.tint:
-                    self.attributes["GLOBAL_tint"].setValue(
-                        (
-                            self.xplaneFile.options.tint_albedo,
-                            self.xplaneFile.options.tint_emissive,
-                        )
-                    )
+            # Enhanced tint handling - only for instanced scenery
+            if (
+                self.xplaneFile.options.export_type == EXPORT_TYPE_INSTANCED_SCENERY
+                and self.xplaneFile.options.tint
+            ):
+                # Clamp tint values to valid range (0.0-1.0)
+                albedo_tint = max(0.0, min(1.0, self.xplaneFile.options.tint_albedo))
+                emissive_tint = max(0.0, min(1.0, self.xplaneFile.options.tint_emissive))
+                
+                self.attributes["GLOBAL_tint"].setValue(
+                    (albedo_tint, emissive_tint)
+                )
 
             if not isCockpit:
                 # tilted
@@ -1234,6 +1284,93 @@ class XPlaneHeader:
                 
                 except (OSError, ValueError) as e:
                     logger.error(f"{self.xplaneFile.filename}: Failed to process {usage} texture '{texture_path}': {str(e)}")
+
+    def _export_standard_shading_commands(self, exportdir: str, xplane_version: int) -> None:
+        """
+        Export Phase 4 Standard Shading commands based on material settings
+        
+        Args:
+            exportdir: Export directory for relative path calculation
+            xplane_version: X-Plane version for compatibility checks
+        """
+        if xplane_version < 1200:
+            return  # Standard shading requires X-Plane 12+
+        
+        # Get the first reference material for standard shading settings
+        if not self.xplaneFile.referenceMaterials or not self.xplaneFile.referenceMaterials[0]:
+            return
+        
+        ref_material = self.xplaneFile.referenceMaterials[0]
+        if not ref_material.blenderMaterial or not hasattr(ref_material.blenderMaterial.xplane, 'standard_shading'):
+            return
+        
+        standard_shading = ref_material.blenderMaterial.xplane.standard_shading
+        
+        if not standard_shading.enable_standard_shading:
+            return
+        
+        try:
+            # DECAL command
+            if standard_shading.decal_enabled and standard_shading.decal_texture:
+                relative_path = self.get_path_relative_to_dir(standard_shading.decal_texture, exportdir)
+                decal_value = f"{standard_shading.decal_scale} {relative_path}"
+                self.attributes["DECAL"].setValue(decal_value)
+            
+            # DECAL_RGBA command
+            if standard_shading.decal_rgba_enabled and standard_shading.decal_rgba_texture:
+                relative_path = self.get_path_relative_to_dir(standard_shading.decal_rgba_texture, exportdir)
+                decal_rgba_value = f"{standard_shading.decal_scale} {relative_path}"
+                self.attributes["DECAL_RGBA"].setValue(decal_rgba_value)
+            
+            # DECAL_KEYED command
+            if standard_shading.decal_keyed_enabled and standard_shading.decal_keyed_texture:
+                relative_path = self.get_path_relative_to_dir(standard_shading.decal_keyed_texture, exportdir)
+                decal_keyed_value = (
+                    f"{standard_shading.decal_scale} "
+                    f"{standard_shading.decal_keyed_r} {standard_shading.decal_keyed_g} "
+                    f"{standard_shading.decal_keyed_b} {standard_shading.decal_keyed_a} "
+                    f"{standard_shading.decal_keyed_alpha} {relative_path}"
+                )
+                self.attributes["DECAL_KEYED"].setValue(decal_keyed_value)
+            
+            # TEXTURE_TILE command
+            if standard_shading.texture_tile_enabled and standard_shading.texture_tile_texture:
+                relative_path = self.get_path_relative_to_dir(standard_shading.texture_tile_texture, exportdir)
+                texture_tile_value = (
+                    f"{standard_shading.texture_tile_x} {standard_shading.texture_tile_y} "
+                    f"{standard_shading.texture_tile_x_pages} {standard_shading.texture_tile_y_pages} "
+                    f"{relative_path}"
+                )
+                self.attributes["TEXTURE_TILE"].setValue(texture_tile_value)
+            
+            # NORMAL_DECAL command
+            if standard_shading.normal_decal_enabled and standard_shading.normal_decal_texture:
+                relative_path = self.get_path_relative_to_dir(standard_shading.normal_decal_texture, exportdir)
+                normal_decal_value = f"{standard_shading.decal_scale} {relative_path} {standard_shading.normal_decal_gloss}"
+                self.attributes["NORMAL_DECAL"].setValue(normal_decal_value)
+            
+            # Material control commands
+            if standard_shading.specular_ratio != 1.0:
+                self.attributes["SPECULAR"].setValue(standard_shading.specular_ratio)
+            
+            if standard_shading.bump_level_ratio != 1.0:
+                self.attributes["BUMP_LEVEL"].setValue(standard_shading.bump_level_ratio)
+            
+            # Alpha control commands
+            if standard_shading.dither_alpha_enabled:
+                dither_alpha_value = f"{standard_shading.dither_alpha_softness} {standard_shading.dither_alpha_bleed}"
+                self.attributes["DITHER_ALPHA"].setValue(dither_alpha_value)
+            
+            if standard_shading.no_alpha_enabled:
+                self.attributes["NO_ALPHA"].setValue(True)
+            
+            # NO_BLEND command (enhanced from existing)
+            if standard_shading.no_blend_alpha_cutoff != 0.5:
+                self.attributes["NO_BLEND"].setValue(standard_shading.no_blend_alpha_cutoff)
+        
+        except (OSError, ValueError) as e:
+            from io_xplane2blender.xplane_helpers import logger
+            logger.error(f"{self.xplaneFile.filename}: Failed to process standard shading commands: {str(e)}")
     
     def _auto_detect_material_textures(self, texture_maps) -> None:
         """

@@ -166,6 +166,11 @@ class XPlaneEmpty(XPlaneObject):
             ):
                 o += " {}".format(special_empty_props.emitter_props.index)
 
+            # Add advanced parameters when advanced mode is enabled
+            if special_empty_props.emitter_props.advanced_mode:
+                o += " {}".format(floatToStr(special_empty_props.emitter_props.intensity))
+                o += " {}".format(floatToStr(special_empty_props.emitter_props.duration))
+
             o += "\n"
         elif (
             int(bpy.context.scene.xplane.version) >= 1130
@@ -207,4 +212,26 @@ class XPlaneEmpty(XPlaneObject):
                 gear_index=special_empty_props.wheel_props.gear_index,
                 wheel_index=special_empty_props.wheel_props.wheel_index
             )  # roll right
+        elif special_empty_props.special_type == EMPTY_USAGE_SMOKE_BLACK:
+            bake_matrix = self.xplaneBone.getBakeMatrixForAttached()
+            em_location = xplane_helpers.vec_b_to_x(bake_matrix.to_translation())
+            
+            o += "{indent}SMOKE_BLACK {x} {y} {z} {size}\n".format(
+                indent=indent,
+                x=floatToStr(em_location.x),
+                y=floatToStr(em_location.y),
+                z=floatToStr(em_location.z),
+                size=floatToStr(special_empty_props.smoke_props.size)
+            )
+        elif special_empty_props.special_type == EMPTY_USAGE_SMOKE_WHITE:
+            bake_matrix = self.xplaneBone.getBakeMatrixForAttached()
+            em_location = xplane_helpers.vec_b_to_x(bake_matrix.to_translation())
+            
+            o += "{indent}SMOKE_WHITE {x} {y} {z} {size}\n".format(
+                indent=indent,
+                x=floatToStr(em_location.x),
+                y=floatToStr(em_location.y),
+                z=floatToStr(em_location.z),
+                size=floatToStr(special_empty_props.smoke_props.size)
+            )
         return o

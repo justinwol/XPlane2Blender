@@ -1,0 +1,23 @@
+I
+800
+OBJ
+
+POINT_COUNTS	4 0 0 2
+
+VT	-1.000000 0.000000 1.000000	0.000000 1.000000 0.000000	0.000000 1.000000
+VT	1.000000 0.000000 1.000000	0.000000 1.000000 0.000000	1.000000 1.000000
+VT	1.000000 0.000000 -1.000000	0.000000 1.000000 0.000000	1.000000 0.000000
+VT	-1.000000 0.000000 -1.000000	0.000000 1.000000 0.000000	0.000000 0.000000
+
+RAIN_scale	0.850
+RAIN_friction	sim/weather/rain_percent	1.000	0.250
+THERMAL_texture	thermal_complete.png
+THERMAL_source2	0	30.000	sim/cockpit/electrical/thermal_pilot
+THERMAL_source2	1	25.000	sim/cockpit/electrical/thermal_copilot
+WIPER_texture	wiper_complete.png
+WIPER_param	0.000	1.000	0.010	sim/cockpit/electrical/wiper_pilot
+WIPER_param	0.000	1.000	0.010	sim/cockpit/electrical/wiper_copilot
+
+IDX10	0 1 2 3
+
+TRIS	0 2

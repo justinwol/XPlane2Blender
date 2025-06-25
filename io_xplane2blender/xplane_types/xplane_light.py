@@ -57,6 +57,76 @@ class _LightSpillCustomParams:
         )
 
 
+@dataclass
+class _LightConeParams:
+    r: float
+    g: float
+    b: float
+
+    @property
+    def a(self):
+        return 1
+
+    size: float
+    dx: float
+    dy: float
+    dz: float
+    cone_angle: float
+    dataref: str
+
+    def __str__(self):
+        return " ".join(
+            chain(
+                map(
+                    floatToStr,
+                    (
+                        self.r,
+                        self.g,
+                        self.b,
+                        self.a,
+                        self.size,
+                        self.dx,
+                        self.dy,
+                        self.dz,
+                        self.cone_angle,
+                    ),
+                ),
+                (self.dataref,),
+            )
+        )
+
+
+@dataclass
+class _LightBillboardParams:
+    r: float
+    g: float
+    b: float
+
+    @property
+    def a(self):
+        return 1
+
+    size: float
+    dataref: str
+
+    def __str__(self):
+        return " ".join(
+            chain(
+                map(
+                    floatToStr,
+                    (
+                        self.r,
+                        self.g,
+                        self.b,
+                        self.a,
+                        self.size,
+                    ),
+                ),
+                (self.dataref,),
+            )
+        )
+
+
 class XPlaneLight(xplane_object.XPlaneObject):
     def __init__(self, blenderObject: bpy.types.Object):
         super().__init__(blenderObject)
@@ -105,6 +175,10 @@ class XPlaneLight(xplane_object.XPlaneObject):
             self.params = blenderObject.data.xplane.params
         elif self.lightType == LIGHT_SPILL_CUSTOM:
             self.params = _LightSpillCustomParams(*([0] * 8), "")
+        elif self.lightType == LIGHT_CONE:
+            self.params = _LightConeParams(*([0] * 8), "")
+        elif self.lightType == LIGHT_BILLBOARD:
+            self.params = _LightBillboardParams(*([0] * 4), "")
         else:
             self.params = None
 
@@ -486,6 +560,61 @@ class XPlaneLight(xplane_object.XPlaneObject):
             p.dx, p.dy, p.dz = new_dxyz_vec_x()
             p.width = width_param_new_value()
             p.dataref = self.dataref
+        elif self.lightType == LIGHT_CONE and light_data.type not in {
+            "POINT",
+            "SPOT",
+        }:
+            logger.error(
+                f"Custom Cone lights must be a Point or Spot light, change {self.blenderObject.name}'s type or change it's X-Plane Light Type"
+            )
+            return
+        elif self.lightType == LIGHT_CONE and light_data.type in {
+            "POINT",
+            "SPOT",
+        }:
+            p = self.params
+            p.r, self.params.g, self.params.b = self.color
+            p.size = self.size
+
+            def cone_angle_param_new_value() -> float:
+                if light_data.type == "POINT":
+                    return 180.0  # Full sphere for point lights
+                elif light_data.type == "SPOT":
+                    # Convert Blender's spot_size (full cone angle) to degrees
+                    return math.degrees(light_data.spot_size)
+
+            def new_dxyz_vec_x() -> Vector:
+                """
+                Returns (potentially scaled) light direction
+                or (0, 0, 0) for omni lights in X-Plane coords
+                """
+
+                if light_data.type == "POINT":
+                    return Vector((0, 0, 0))
+                elif light_data.type == "SPOT":
+                    return vec_b_to_x(self.get_light_direction_b())
+                else:
+                    assert False, f"What is this light_data.type {light_data.type}"
+
+            p.dx, p.dy, p.dz = new_dxyz_vec_x()
+            p.cone_angle = cone_angle_param_new_value()
+            p.dataref = self.dataref
+        elif self.lightType == LIGHT_BILLBOARD and light_data.type not in {
+            "POINT",
+            "SPOT",
+        }:
+            logger.error(
+                f"Custom Billboard lights must be a Point or Spot light, change {self.blenderObject.name}'s type or change it's X-Plane Light Type"
+            )
+            return
+        elif self.lightType == LIGHT_BILLBOARD and light_data.type in {
+            "POINT",
+            "SPOT",
+        }:
+            p = self.params
+            p.r, self.params.g, self.params.b = self.color
+            p.size = self.size
+            p.dataref = self.dataref
         # X-Plane Light Type | Light Type | parsed_light | light_param_defs | Result
         # -------------------|------------|--------------|------------------|-------
         # LIGHT_{OLD_TYPES}  | *          | N/A          | N/A              | Write
@@ -702,6 +831,10 @@ class XPlaneLight(xplane_object.XPlaneObject):
             )
         elif self.lightType == LIGHT_SPILL_CUSTOM:
             o += f"{indent}LIGHT_SPILL_CUSTOM {translation_xp_str} {self.params}\n"
+        elif self.lightType == LIGHT_CONE:
+            o += f"{indent}LIGHT_CONE {translation_xp_str} {self.params}\n"
+        elif self.lightType == LIGHT_BILLBOARD:
+            o += f"{indent}LIGHT_BILLBOARD {translation_xp_str} {self.params}\n"
         # do not render lights with no indices
         elif self.indices[1] > self.indices[0]:
             offset = self.indices[0]

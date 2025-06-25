@@ -1,0 +1,8 @@
+# Test FAN command export
+VLINE 0 0 0
+VLINE 1 1 0
+VLINE 2 0 1
+VLINE 3 -1 0
+VLINE 4 0 -1
+FAN
+5 0 1 2 3 4

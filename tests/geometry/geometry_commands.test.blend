@@ -1,0 +1,6 @@
+# This is a placeholder file. The actual blend file should be created manually with the following layers:
+# Layer 0: Simple line segments (for LINES test)
+# Layer 1: Connected line strip (for LINE_STRIP test)
+# Layer 2: Quad strip geometry (for QUAD_STRIP test)
+# Layer 3: Triangle fan geometry (for FAN test)
+# Layer 4: Regular triangle mesh (for TRIS compatibility test)

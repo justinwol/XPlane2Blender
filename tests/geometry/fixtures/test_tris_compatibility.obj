@@ -1,0 +1,10 @@
+# Test TRIS backward compatibility
+VT 0 0 0 0 0
+VT 1 1 0 0 0
+VT 2 0 1 0 0
+VT 3 0 0 0 0 1
+VT 4 1 0 0 0 1
+VT 5 0 1 0 0 1
+TRIS
+6 0 1 2
+6 3 4 5

@@ -1,0 +1,7 @@
+# Test LINE_STRIP command export
+VLINE 0 0 0
+VLINE 1 0 1
+VLINE 2 1 0
+VLINE 3 1 1
+LINE_STRIP
+4 0 1 2 3

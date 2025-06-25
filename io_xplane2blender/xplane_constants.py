@@ -1,35 +1,28 @@
-"""
-  #####     ##   ##  ##   ####  ####  ####    #####   ####    ##    ####   ###   ##  ##   ###  #
-   #   #   # #    #  #   ##  #  ## #  #  #     #   #  #  #   # #   ##  #  #   #   #  #   #  #  #
+"""#####     ##   ##  ##   ####  ####  ####    #####   ####    ##    ####   ###   ##  ##   ###  #
+   #   #   # #    #  #   ##  #  ## #  #  #     #   #  #  #   # #   ##  #  #   #   #  #   #  #
   ##   #   # #   # # #  ##      ###   ###     ##   #  ###    # #  ##     ##   #  # # #   ##    #
   ##   #  ####   # # #  #  ###  #     # #     ##   #  # #   ####  #  ### #    #  # # #    ##   #
-  #   #   #  #   #  ##  ##  #   # #   # #     #   #   # #   #  #  ##  #  #   #   #  ##  #  #
+   #   #   #  #   #  ##  ##  #   # #   # #     #   #   # #   #  #  ##  #  #   #   #  ##  #  #
  #####   ##  ## ##  #    ####  ####  ## ##   #####   ## ## ##  ##  ####   ###   ##  #   ####  #
 
 This file contains important constants for the X-Plane 12+ data model.
 Please use care when changing or removing constants!
-
 Please sort this file's sections alphabetically
 """
-
 
 def _get_addon_folder() -> str:
     import os
 
     return os.path.dirname(os.path.abspath(__file__))
 
-
 ADDON_FOLDER = _get_addon_folder()
-
 
 def _get_resources_folder() -> str:
     import os
 
     return os.path.join(_get_addon_folder(), "resources")
 
-
 ADDON_RESOURCES_FOLDER = _get_resources_folder()
-
 
 # Used in determining whether the difference between values
 # is large enough to warrent emitting an animation
@@ -47,6 +40,8 @@ EMPTY_USAGE_NONE = "none"
 EMPTY_USAGE_EMITTER_PARTICLE = "emitter_particle"
 EMPTY_USAGE_EMITTER_SOUND = "emitter_sound"
 EMPTY_USAGE_MAGNET = "magnet"
+EMPTY_USAGE_SMOKE_BLACK = "smoke_black"
+EMPTY_USAGE_SMOKE_WHITE = "smoke_white"
 EMPTY_USAGE_WHEEL = "wheel"
 
 # Landing Gear Constants
@@ -155,6 +150,13 @@ MANIP_COMMAND_SWITCH_UP_DOWN = "command_switch_up_down"
 # 11.10 and greater manips
 # Note: these are not new manips in the OBJ spec, we are reusing manip_drag_axis + using ATTR_axis_detented
 # What makes them special is their data is automatically detected as much as possible
+
+# Geometry primitive types
+PRIMITIVE_TYPE_TRIS = "TRIS"
+PRIMITIVE_TYPE_LINES = "LINES"
+PRIMITIVE_TYPE_LINE_STRIP = "LINE_STRIP"
+PRIMITIVE_TYPE_QUAD_STRIP = "QUAD_STRIP"
+PRIMITIVE_TYPE_FAN = "FAN"
 MANIP_DRAG_AXIS_DETENT = "drag_axis_detent"
 
 MANIP_DRAG_ROTATE = "drag_rotate"
@@ -178,7 +180,6 @@ MANIPULATORS_MOUSE_WHEEL = (
 
 MANIPULATORS_OPT_IN = MANIP_DRAG_AXIS
 
-
 def _get_all_manipulators():
     import inspect
 
@@ -188,7 +189,6 @@ def _get_all_manipulators():
         for global_name in current_frame.f_globals
         if global_name.startswith("MANIP_") and "CURSOR" not in global_name
     }
-
 
 MANIPULATORS_ALL = {*_get_all_manipulators().values()}
 
@@ -302,6 +302,28 @@ TEXTURE_CHANNEL_RG = "RG"
 TEXTURE_CHANNEL_RGB = "RGB"
 TEXTURE_CHANNEL_RGBA = "RGBA"
 
+# Standard Shading Commands for Phase 4
+SHADER_DECAL = "DECAL"
+SHADER_DECAL_RGBA = "DECAL_RGBA"
+SHADER_DECAL_KEYED = "DECAL_KEYED"
+SHADER_TEXTURE_TILE = "TEXTURE_TILE"
+SHADER_NORMAL_DECAL = "NORMAL_DECAL"
+SHADER_DITHER_ALPHA = "DITHER_ALPHA"
+SHADER_NO_ALPHA = "NO_ALPHA"
+
+# Default values for standard shading
+DEFAULT_DECAL_SCALE = 1.0
+DEFAULT_TEXTURE_TILE_X = 1
+DEFAULT_TEXTURE_TILE_Y = 1
+DEFAULT_TEXTURE_TILE_X_PAGES = 1
+DEFAULT_TEXTURE_TILE_Y_PAGES = 1
+DEFAULT_NORMAL_DECAL_GLOSS = 1.0
+DEFAULT_SPECULAR_RATIO = 1.0
+DEFAULT_BUMP_LEVEL_RATIO = 1.0
+DEFAULT_DITHER_ALPHA_SOFTNESS = 0.5
+DEFAULT_DITHER_ALPHA_BLEED = 0.0
+DEFAULT_NO_BLEND_ALPHA_CUTOFF = 0.5
+
 # Supported texture formats for X-Plane
 TEXTURE_FORMAT_PNG = ".png"
 TEXTURE_FORMAT_DDS = ".dds"
@@ -358,6 +380,8 @@ LIGHT_CUSTOM = "custom"
 LIGHT_PARAM = "param"
 LIGHT_AUTOMATIC = "automatic"
 LIGHT_SPILL_CUSTOM = "light_spill_custom"
+LIGHT_CONE = "light_cone"
+LIGHT_BILLBOARD = "light_billboard"
 LIGHT_NON_EXPORTING = "nonexporting"
 
 LIGHTS_OLD_TYPES = {
@@ -385,3 +409,14 @@ LOGGER_LEVELS_ALL = (
 PANEL_COCKPIT = "cockpit"
 PANEL_COCKPIT_LIT_ONLY = "cockpit_lit_only"
 PANEL_COCKPIT_REGION = "cockpit_region"
+
+# Geometry command constants
+GEOMETRY_COMMAND_VT = "VT"
+GEOMETRY_COMMAND_VLINE = "VLINE"
+GEOMETRY_COMMAND_IDX = "IDX"
+GEOMETRY_COMMAND_IDX10 = "IDX10"
+GEOMETRY_COMMAND_TRIS = "TRIS"
+GEOMETRY_COMMAND_LINES = "LINES"
+GEOMETRY_COMMAND_LINE_STRIP = "LINE_STRIP"
+GEOMETRY_COMMAND_QUAD_STRIP = "QUAD_STRIP"
+GEOMETRY_COMMAND_FAN = "FAN"

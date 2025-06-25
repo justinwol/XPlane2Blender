@@ -21,11 +21,8 @@ from .xplane_manipulator import XPlaneManipulator
 from .xplane_material import XPlaneMaterial
 from .xplane_object import XPlaneObject
 
-
 class XPlanePrimitive(XPlaneObject):
-    """
-    Used to represent Mesh objects and their XPlaneObjectSettings
-    """
+    """Used to represent Mesh objects and their XPlaneObjectSettings"""
 
     def __init__(self, blenderObject: bpy.types.Object):
         assert blenderObject.type == "MESH"
@@ -42,9 +39,12 @@ class XPlanePrimitive(XPlaneObject):
         self.manipulator = XPlaneManipulator(self)
         self.setWeight()
 
+        # Store the primitive type
+        self.primitive_type = PRIMITIVE_TYPE_TRIS
+        self.line_indices = [0, 0]  # Starting and ending indices for line geometry
+
     def setWeight(self, defaultWeight:int = 0)->None:
-        """
-        If not default, weight will 0 if no materials
+        """If not default, weight will 0 if no materials
         given, or it will be the index of the last matching material
         in the bpy.data.materials array + XPlaneObject's
         weight.
@@ -85,6 +85,10 @@ class XPlanePrimitive(XPlaneObject):
         if self.material:
             self.material.collect()
 
+        # Detect primitive type from the mesh
+        mesh = bl_obj.data
+        self.primitive_type = self._detectPrimitiveType(mesh)
+
     def collectLightLevelAttributes(self) -> None:
         xplane_version = int(bpy.context.scene.xplane.version)
         bl_obj = self.blenderObject
@@ -98,6 +102,49 @@ class XPlanePrimitive(XPlaneObject):
                 ll_values.append(bl_obj.xplane.lightLevel_brightness)
             self.attributes["ATTR_light_level"].setValue(tuple(ll_values))
             self.material.attributes["ATTR_light_level_reset"].setValue(False)
+
+    def _detectPrimitiveType(self, mesh: bpy.types.Mesh) -> str:
+        """Analyzes Blender mesh to determine primitive type"""
+        # Check for line segments (LINES)
+        if mesh.polygons and all(len(p.vertices) == 2 for p in mesh.polygons):
+            return PRIMITIVE_TYPE_LINES
+
+        # Check for connected line sequence (LINE_STRIP)
+        if mesh.edges and len(mesh.edges) > 1:
+            # Check if edges form a continuous line
+            edge_vertices = set()
+            for edge in mesh.edges:
+                edge_vertices.update(edge.vertices)
+                if len(edge_vertices) > 2:
+                    break
+            else:
+                return PRIMITIVE_TYPE_LINE_STRIP
+
+        # Check for quad strip (QUAD_STRIP)
+        if mesh.polygons and all(len(p.vertices) == 4 for p in mesh.polygons):
+            # Check if polygons form a quad strip
+            for i in range(len(mesh.polygons) - 1):
+                p1 = mesh.polygons[i]
+                p2 = mesh.polygons[i + 1]
+                shared_vertices = set(p1.vertices) & set(p2.vertices)
+                if len(shared_vertices) != 2:
+                    break
+            else:
+                return PRIMITIVE_TYPE_QUAD_STRIP
+
+        # Check for triangle fan (FAN)
+        if mesh.polygons and all(len(p.vertices) == 3 for p in mesh.polygons):
+            # Check if polygons form a triangle fan
+            if len(mesh.polygons) > 2:
+                common_vertex = mesh.polygons[0].vertices[0]
+                for p in mesh.polygons[1:]:
+                    if common_vertex not in p.vertices:
+                        break
+                else:
+                    return PRIMITIVE_TYPE_FAN
+
+        # Default to triangles (TRIS)
+        return PRIMITIVE_TYPE_TRIS
 
     def write(self) -> str:
         debug = getDebug()
@@ -143,15 +190,34 @@ class XPlanePrimitive(XPlaneObject):
             for attr in self.cockpitAttributes:
                 o += commands.writeAttribute(self.cockpitAttributes[attr], self)
 
-        if self.indices[1] > self.indices[0]:
+        # Handle line-based geometry
+        if self.primitive_type in [PRIMITIVE_TYPE_LINES, PRIMITIVE_TYPE_LINE_STRIP]:
+            if self.line_indices[1] > self.line_indices[0]:
+                offset = self.line_indices[0]
+                count = self.line_indices[1] - self.line_indices[0]
+
+                if self.primitive_type == PRIMITIVE_TYPE_LINES:
+                    o += "%sLINES\t%d %d\n" % (indent, offset, count)
+                elif self.primitive_type == PRIMITIVE_TYPE_LINE_STRIP:
+                    o += "%sLINE_STRIP\t%d %d\n" % (indent, offset, count)
+        
+        # Handle triangle-based geometry
+        elif self.indices[1] > self.indices[0]:
             offset = self.indices[0]
             count = self.indices[1] - self.indices[0]
 
             if bl_obj.xplane.rain_cannot_escape:
                 o += "TRIS_break\n"
-            o += "%sTRIS\t%d %d\n" % (indent, offset, count)
+
+            # Write appropriate command based on primitive type
+            if self.primitive_type == PRIMITIVE_TYPE_QUAD_STRIP:
+                o += "%sQUAD_STRIP\t%d %d\n" % (indent, offset, count)
+            elif self.primitive_type == PRIMITIVE_TYPE_FAN:
+                o += "%sFAN\t%d %d\n" % (indent, offset, count)
+            else:  # Default to TRIS
+                o += "%sTRIS\t%d %d\n" % (indent, offset, count)
+
             if bl_obj.xplane.rain_cannot_escape:
                 o += "TRIS_break\n"
-
 
         return o

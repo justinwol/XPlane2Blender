@@ -1,0 +1,8 @@
+# Test LINES command export
+VLINE 0 0 0
+VLINE 1 0 1
+VLINE 2 1 0
+VLINE 3 1 1
+LINES
+4 0 1
+4 2 3

@@ -64,6 +64,10 @@ class MaterialNodeConverter:
         # Apply detected textures to texture_maps
         self._apply_detected_textures()
         
+        # Apply standard shading features if material has the property
+        if hasattr(self.material.xplane, 'standard_shading'):
+            self._apply_standard_shading_to_material(self.material.xplane.standard_shading)
+        
         return {
             'success': True,
             'message': f'Converted {len(self.detected_textures)} texture mappings',
@@ -246,6 +250,138 @@ class MaterialNodeConverter:
                 self.texture_maps.material_gloss_channels = "RGBA"  # Assume RGBA for combined
                 self.conversion_log.append("Combined metallic/roughness into material_gloss texture")
 
+    def _detect_standard_shading_features(self) -> Dict[str, Any]:
+        """
+        Detect standard shading features from Blender material nodes
+        
+        Returns:
+            Dictionary with detected standard shading features
+        """
+        features = {
+            'decals': [],
+            'texture_tiling': None,
+            'normal_decals': [],
+            'pbr_workflow': False,
+            'material_controls': {}
+        }
+        
+        if not self.material or not self.material.use_nodes:
+            return features
+        
+        # Detect PBR workflow
+        principled_node = self._find_principled_bsdf_node()
+        if principled_node:
+            features['pbr_workflow'] = True
+            
+            # Check for connected inputs that indicate PBR usage
+            pbr_inputs = ['Metallic', 'Roughness', 'Normal', 'Base Color']
+            connected_inputs = [input_name for input_name in pbr_inputs
+                              if input_name in principled_node.inputs and
+                              principled_node.inputs[input_name].is_linked]
+            
+            if len(connected_inputs) >= 2:
+                features['material_controls']['pbr_detected'] = True
+                features['material_controls']['connected_inputs'] = connected_inputs
+        
+        # Detect potential decal textures (Image Texture nodes not connected to main shader)
+        for node in self.material.node_tree.nodes:
+            if node.type == 'TEX_IMAGE' and node.image:
+                # Check if this texture node is not part of the main material flow
+                if not self._is_connected_to_principled_bsdf(node):
+                    decal_info = {
+                        'texture_path': self._resolve_texture_path(node.image.filepath),
+                        'node_name': node.name,
+                        'scale': 1.0  # Default scale
+                    }
+                    features['decals'].append(decal_info)
+        
+        # Detect texture coordinate nodes that might indicate tiling
+        for node in self.material.node_tree.nodes:
+            if node.type == 'TEX_COORD':
+                # Look for connected Math nodes that might indicate tiling
+                for output in node.outputs:
+                    if output.is_linked:
+                        for link in output.links:
+                            if link.to_node.type == 'MATH' and link.to_node.operation == 'MULTIPLY':
+                                # This might be texture tiling
+                                features['texture_tiling'] = {
+                                    'detected': True,
+                                    'node_name': link.to_node.name
+                                }
+        
+        return features
+
+    def _is_connected_to_principled_bsdf(self, texture_node) -> bool:
+        """
+        Check if a texture node is connected to the main Principled BSDF shader
+        
+        Args:
+            texture_node: Image Texture node to check
+            
+        Returns:
+            True if connected to main shader, False otherwise
+        """
+        if not texture_node.outputs['Color'].is_linked:
+            return False
+        
+        # Traverse the node tree to see if it reaches a Principled BSDF
+        visited_nodes = set()
+        nodes_to_check = [link.to_node for link in texture_node.outputs['Color'].links]
+        
+        while nodes_to_check:
+            current_node = nodes_to_check.pop(0)
+            
+            if current_node.name in visited_nodes:
+                continue
+            visited_nodes.add(current_node.name)
+            
+            if current_node.type == 'BSDF_PRINCIPLED':
+                return True
+            
+            # Add connected nodes to check
+            for output in current_node.outputs:
+                if output.is_linked:
+                    nodes_to_check.extend([link.to_node for link in output.links])
+        
+        return False
+
+    def _apply_standard_shading_to_material(self, material_settings) -> None:
+        """
+        Apply detected standard shading features to material settings
+        
+        Args:
+            material_settings: XPlaneStandardShading settings object
+        """
+        features = self._detect_standard_shading_features()
+        
+        if features['pbr_workflow']:
+            # Enable standard shading for PBR materials
+            material_settings.enable_standard_shading = True
+            self.conversion_log.append("Detected PBR workflow, enabled standard shading")
+            
+            # Set reasonable defaults for PBR materials
+            if 'pbr_detected' in features['material_controls']:
+                material_settings.specular_ratio = 1.0
+                material_settings.bump_level_ratio = 1.0
+                self.conversion_log.append("Applied PBR material control defaults")
+        
+        # Apply decal detection
+        if features['decals']:
+            if len(features['decals']) > 0:
+                first_decal = features['decals'][0]
+                material_settings.decal_enabled = True
+                material_settings.decal_texture = first_decal['texture_path']
+                material_settings.decal_scale = first_decal['scale']
+                self.conversion_log.append(f"Auto-detected decal texture: {first_decal['texture_path']}")
+        
+        # Apply texture tiling detection
+        if features['texture_tiling'] and features['texture_tiling']['detected']:
+            material_settings.texture_tile_enabled = True
+            # Set default tiling values
+            material_settings.texture_tile_x = 2
+            material_settings.texture_tile_y = 2
+            self.conversion_log.append("Detected potential texture tiling setup")
+
 
 class MaterialAnalyzer:
     """Analyzes Blender materials for X-Plane compatibility"""
@@ -341,7 +477,18 @@ def convert_blender_material_to_xplane(material, texture_maps) -> Dict[str, Any]
         }
     
     converter = MaterialNodeConverter(material, texture_maps)
-    return converter.convert_material_nodes()
+    result = converter.convert_material_nodes()
+    
+    # Add standard shading analysis
+    if hasattr(material.xplane, 'standard_shading'):
+        std_shading_analysis = analyze_standard_shading_compatibility(material)
+        result['standard_shading_analysis'] = std_shading_analysis
+        
+        if std_shading_analysis['compatible']:
+            result['log'].append("Material is compatible with Phase 4 Standard Shading")
+            result['log'].extend([f"  - {feature}" for feature in std_shading_analysis['features_supported']])
+    
+    return result
 
 
 def analyze_material_for_xplane(material) -> Dict[str, Any]:
@@ -387,6 +534,120 @@ def validate_material_node_setup(material) -> List[TextureValidationError]:
             "error", "material", "No material provided", ""
         ))
         return errors
+    
+    
+    def detect_pbr_workflow(material) -> Dict[str, Any]:
+        """
+        Detect if a material uses a PBR (Physically Based Rendering) workflow
+        
+        Args:
+            material: Blender material object
+            
+        Returns:
+            Dictionary with PBR detection results
+        """
+        result = {
+            'is_pbr': False,
+            'confidence': 0.0,
+            'features': [],
+            'recommendations': []
+        }
+        
+        if not material or not material.use_nodes:
+            return result
+        
+        # Look for Principled BSDF node
+        principled_node = None
+        for node in material.node_tree.nodes:
+            if node.type == 'BSDF_PRINCIPLED':
+                principled_node = node
+                break
+        
+        if not principled_node:
+            return result
+        
+        # Check for PBR-specific inputs
+        pbr_inputs = {
+            'Base Color': 0.2,
+            'Metallic': 0.3,
+            'Roughness': 0.3,
+            'Normal': 0.2
+        }
+        
+        connected_weight = 0.0
+        for input_name, weight in pbr_inputs.items():
+            if input_name in principled_node.inputs and principled_node.inputs[input_name].is_linked:
+                connected_weight += weight
+                result['features'].append(f"Connected {input_name} input")
+        
+        result['confidence'] = min(connected_weight, 1.0)
+        result['is_pbr'] = result['confidence'] >= 0.5
+        
+        # Add recommendations
+        if result['is_pbr']:
+            result['recommendations'].append("Enable Standard Shading for full PBR support")
+            result['recommendations'].append("Use TEXTURE_MAP directives for optimal performance")
+        else:
+            result['recommendations'].append("Consider using Principled BSDF for PBR workflow")
+            result['recommendations'].append("Connect textures to Metallic and Roughness inputs")
+        
+        return result
+    
+    
+    def analyze_standard_shading_compatibility(material) -> Dict[str, Any]:
+        """
+        Analyze material compatibility with Phase 4 Standard Shading features
+        
+        Args:
+            material: Blender material object
+            
+        Returns:
+            Dictionary with compatibility analysis
+        """
+        analysis = {
+            'compatible': False,
+            'features_supported': [],
+            'features_recommended': [],
+            'issues': [],
+            'pbr_analysis': None
+        }
+        
+        if not material:
+            analysis['issues'].append("No material provided")
+            return analysis
+        
+        # Analyze PBR workflow
+        pbr_result = detect_pbr_workflow(material)
+        analysis['pbr_analysis'] = pbr_result
+        
+        if pbr_result['is_pbr']:
+            analysis['features_supported'].extend([
+                'DECAL commands for surface detail',
+                'TEXTURE_TILE for breaking repetition',
+                'NORMAL_DECAL for enhanced surface detail',
+                'SPECULAR and BUMP_LEVEL controls'
+            ])
+            analysis['compatible'] = True
+        
+        # Check for texture usage
+        if material.use_nodes:
+            texture_count = sum(1 for node in material.node_tree.nodes if node.type == 'TEX_IMAGE')
+            
+            if texture_count > 1:
+                analysis['features_recommended'].append('DECAL commands for additional textures')
+            
+            if texture_count > 3:
+                analysis['features_recommended'].append('TEXTURE_TILE to reduce texture memory usage')
+        
+        # Check for alpha usage
+        if material.use_nodes:
+            for node in material.node_tree.nodes:
+                if node.type == 'BSDF_PRINCIPLED' and 'Alpha' in node.inputs:
+                    if node.inputs['Alpha'].is_linked or node.inputs['Alpha'].default_value < 1.0:
+                        analysis['features_supported'].append('DITHER_ALPHA and NO_ALPHA commands')
+                        break
+        
+        return analysis
     
     if not material.use_nodes:
         errors.append(TextureValidationError(

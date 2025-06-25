@@ -325,6 +325,28 @@ class XPlaneEmitter(bpy.types.PropertyGroup):
         default=False
     )
 
+    advanced_mode: bpy.props.BoolProperty(
+        name="Advanced Mode",
+        description="Enable advanced emitter parameters",
+        default=False
+    )
+
+    intensity: bpy.props.FloatProperty(
+        name="Intensity",
+        description="Particle emission intensity",
+        min=0.0,
+        max=10.0,
+        default=1.0
+    )
+
+    duration: bpy.props.FloatProperty(
+        name="Duration",
+        description="Emission duration in seconds",
+        min=0.1,
+        max=60.0,
+        default=5.0
+    )
+
 class XPlaneMagnet(bpy.types.PropertyGroup):
     debug_name: bpy.props.StringProperty(
         name="Debug Name",
@@ -339,6 +361,15 @@ class XPlaneMagnet(bpy.types.PropertyGroup):
     magnet_type_is_flashlight: bpy.props.BoolProperty(
         name="flashlight",
         description="Sets the type to include 'flashlight'"
+    )
+
+class XPlaneSmoke(bpy.types.PropertyGroup):
+    size: bpy.props.FloatProperty(
+        name="Size",
+        description="Smoke puff size parameter",
+        min=0.1,
+        max=10.0,
+        default=1.0
     )
 
 class XPlaneWheel(bpy.types.PropertyGroup):
@@ -426,6 +457,12 @@ class XPlaneEmpty(bpy.types.PropertyGroup):
         type=XPlaneMagnet
     )
 
+    smoke_props: bpy.props.PointerProperty(
+        name="Smoke Settings",
+        description="Settings for smoke effects",
+        type=XPlaneSmoke
+    )
+
     wheel_props: bpy.props.PointerProperty(
         name="Wheel Settings",
         description="Settings for the wheel",
@@ -439,8 +476,10 @@ class XPlaneEmpty(bpy.types.PropertyGroup):
             (EMPTY_USAGE_NONE,             "None",             "Empty has no special use", 0),
             (EMPTY_USAGE_EMITTER_PARTICLE, "Particle Emitter", "A particle emitter", 1),
             #(EMPTY_USAGE_EMITTER_SOUND,   "Sound Emitter",    "Empty represents a sound emitter", 2), #One day...
-            (EMPTY_USAGE_WHEEL,             "Wheel",            "A wheel"),
-            (EMPTY_USAGE_MAGNET,           "Magnet",           "A mounting point on a yoke where a VR tablet can be attached", 3)
+            (EMPTY_USAGE_MAGNET,           "Magnet",           "A mounting point on a yoke where a VR tablet can be attached", 3),
+            (EMPTY_USAGE_SMOKE_BLACK,      "Smoke Black",      "Black smoke puff effect"),
+            (EMPTY_USAGE_SMOKE_WHITE,      "Smoke White",      "White smoke puff effect"),
+            (EMPTY_USAGE_WHEEL,             "Wheel",            "A wheel")
         ]
     )
 
@@ -915,6 +954,10 @@ class XPlaneThermalSourceSettings(bpy.types.PropertyGroup):
             name="Thermal On/Off Dataref",
             description="Dataref that controls source on/off"
         )
+    temperature_dataref: bpy.props.StringProperty(
+            name="Temperature Dataref",
+            description="Dataref that provides temperature value for THERMAL_source command (X-Plane 12.0-12.0.x compatibility)",
+        )
 
 class XPlaneWiperSettings(bpy.types.PropertyGroup):
     object_name: bpy.props.StringProperty(
@@ -1333,6 +1376,240 @@ class XPlaneTextureMap(bpy.types.PropertyGroup):
         name = "Auto-detect Image Texture Nodes",
         description = "Automatically detect Image Texture nodes and map to appropriate channels",
         default = True
+    )
+
+
+# Class: XPlaneStandardShading
+# Standard Shading Options for Phase 4 implementation
+class XPlaneStandardShading(bpy.types.PropertyGroup):
+    # Enable/disable standard shading features
+    enable_standard_shading: bpy.props.BoolProperty(
+        name = "Enable Standard Shading",
+        description = "Enable Phase 4 Standard Shading features",
+        default = False
+    )
+    
+    # DECAL commands
+    decal_enabled: bpy.props.BoolProperty(
+        name = "Enable Decals",
+        description = "Enable decal shader commands",
+        default = False
+    )
+    
+    decal_scale: bpy.props.FloatProperty(
+        name = "Decal Scale",
+        description = "Scale factor for decal textures",
+        default = DEFAULT_DECAL_SCALE,
+        min = 0.1,
+        max = 10.0,
+        precision = 3
+    )
+    
+    decal_texture: bpy.props.StringProperty(
+        subtype = "FILE_PATH",
+        name = "Decal Texture",
+        description = "Texture file for DECAL command",
+        default = ""
+    )
+    
+    decal_rgba_enabled: bpy.props.BoolProperty(
+        name = "Enable DECAL_RGBA",
+        description = "Enable DECAL_RGBA shader command",
+        default = False
+    )
+    
+    decal_rgba_texture: bpy.props.StringProperty(
+        subtype = "FILE_PATH",
+        name = "DECAL_RGBA Texture",
+        description = "Texture file for DECAL_RGBA command",
+        default = ""
+    )
+    
+    # DECAL_KEYED command
+    decal_keyed_enabled: bpy.props.BoolProperty(
+        name = "Enable DECAL_KEYED",
+        description = "Enable DECAL_KEYED shader command",
+        default = False
+    )
+    
+    decal_keyed_r: bpy.props.FloatProperty(
+        name = "Key Red",
+        description = "Red component of key color",
+        default = 1.0,
+        min = 0.0,
+        max = 1.0,
+        precision = 3
+    )
+    
+    decal_keyed_g: bpy.props.FloatProperty(
+        name = "Key Green",
+        description = "Green component of key color",
+        default = 1.0,
+        min = 0.0,
+        max = 1.0,
+        precision = 3
+    )
+    
+    decal_keyed_b: bpy.props.FloatProperty(
+        name = "Key Blue",
+        description = "Blue component of key color",
+        default = 1.0,
+        min = 0.0,
+        max = 1.0,
+        precision = 3
+    )
+    
+    decal_keyed_a: bpy.props.FloatProperty(
+        name = "Key Alpha",
+        description = "Alpha component of key color",
+        default = 1.0,
+        min = 0.0,
+        max = 1.0,
+        precision = 3
+    )
+    
+    decal_keyed_alpha: bpy.props.FloatProperty(
+        name = "Keyed Alpha",
+        description = "Alpha value for keyed decal",
+        default = 1.0,
+        min = 0.0,
+        max = 1.0,
+        precision = 3
+    )
+    
+    decal_keyed_texture: bpy.props.StringProperty(
+        subtype = "FILE_PATH",
+        name = "DECAL_KEYED Texture",
+        description = "Texture file for DECAL_KEYED command",
+        default = ""
+    )
+    
+    # TEXTURE_TILE command
+    texture_tile_enabled: bpy.props.BoolProperty(
+        name = "Enable Texture Tiling",
+        description = "Enable TEXTURE_TILE command",
+        default = False
+    )
+    
+    texture_tile_x: bpy.props.IntProperty(
+        name = "X Tiles",
+        description = "Number of tiles in X direction",
+        default = DEFAULT_TEXTURE_TILE_X,
+        min = 1,
+        max = 16
+    )
+    
+    texture_tile_y: bpy.props.IntProperty(
+        name = "Y Tiles",
+        description = "Number of tiles in Y direction",
+        default = DEFAULT_TEXTURE_TILE_Y,
+        min = 1,
+        max = 16
+    )
+    
+    texture_tile_x_pages: bpy.props.IntProperty(
+        name = "X Pages",
+        description = "Number of pages in X direction",
+        default = DEFAULT_TEXTURE_TILE_X_PAGES,
+        min = 1,
+        max = 16
+    )
+    
+    texture_tile_y_pages: bpy.props.IntProperty(
+        name = "Y Pages",
+        description = "Number of pages in Y direction",
+        default = DEFAULT_TEXTURE_TILE_Y_PAGES,
+        min = 1,
+        max = 16
+    )
+    
+    texture_tile_texture: bpy.props.StringProperty(
+        subtype = "FILE_PATH",
+        name = "Tile Texture",
+        description = "Texture file for TEXTURE_TILE command",
+        default = ""
+    )
+    
+    # NORMAL_DECAL command
+    normal_decal_enabled: bpy.props.BoolProperty(
+        name = "Enable Normal Decals",
+        description = "Enable NORMAL_DECAL command",
+        default = False
+    )
+    
+    normal_decal_gloss: bpy.props.FloatProperty(
+        name = "Normal Decal Gloss",
+        description = "Gloss value for normal decal",
+        default = DEFAULT_NORMAL_DECAL_GLOSS,
+        min = 0.0,
+        max = 2.0,
+        precision = 3
+    )
+    
+    normal_decal_texture: bpy.props.StringProperty(
+        subtype = "FILE_PATH",
+        name = "Normal Decal Texture",
+        description = "Texture file for NORMAL_DECAL command",
+        default = ""
+    )
+    
+    # Material control commands
+    specular_ratio: bpy.props.FloatProperty(
+        name = "Specular Ratio",
+        description = "Specular ratio for SPECULAR command",
+        default = DEFAULT_SPECULAR_RATIO,
+        min = 0.0,
+        max = 2.0,
+        precision = 3
+    )
+    
+    bump_level_ratio: bpy.props.FloatProperty(
+        name = "Bump Level Ratio",
+        description = "Bump level ratio for BUMP_LEVEL command",
+        default = DEFAULT_BUMP_LEVEL_RATIO,
+        min = 0.0,
+        max = 2.0,
+        precision = 3
+    )
+    
+    # Alpha control commands
+    dither_alpha_enabled: bpy.props.BoolProperty(
+        name = "Enable Dither Alpha",
+        description = "Enable DITHER_ALPHA command",
+        default = False
+    )
+    
+    dither_alpha_softness: bpy.props.FloatProperty(
+        name = "Dither Softness",
+        description = "Softness value for DITHER_ALPHA command",
+        default = DEFAULT_DITHER_ALPHA_SOFTNESS,
+        min = 0.0,
+        max = 1.0,
+        precision = 3
+    )
+    
+    dither_alpha_bleed: bpy.props.FloatProperty(
+        name = "Dither Bleed",
+        description = "Bleed value for DITHER_ALPHA command",
+        default = DEFAULT_DITHER_ALPHA_BLEED,
+        min = 0.0,
+        max = 1.0,
+        precision = 3
+    )
+    
+    no_alpha_enabled: bpy.props.BoolProperty(
+        name = "Enable NO_ALPHA",
+        description = "Enable NO_ALPHA command",
+        default = False
+    )
+    
+    no_blend_alpha_cutoff: bpy.props.FloatProperty(
+        name = "No Blend Alpha Cutoff",
+        description = "Alpha cutoff level for NO_BLEND command",
+        default = DEFAULT_NO_BLEND_ALPHA_CUTOFF,
+        min = 0.0,
+        max = 1.0,
+        precision = 3
     )
 
 
@@ -2674,6 +2951,12 @@ class XPlaneMaterialSettings(bpy.types.PropertyGroup):
         max = 2.0
     )
 
+    standard_shading: bpy.props.PointerProperty(
+        name = "Standard Shading",
+        description = "Phase 4 Standard Shading Options",
+        type = XPlaneStandardShading
+    )
+
 
 
 class XPlaneLightSettings(bpy.types.PropertyGroup):
@@ -2743,6 +3026,8 @@ class XPlaneLightSettings(bpy.types.PropertyGroup):
                 (LIGHT_PARAM,     "Manual Param (deprecated)",  "Uses manual entry for parameters, not recommended"),
                 (LIGHT_AUTOMATIC, "Automatic",                  "Makes named and param lights with params taken from Blender light data"),
                 (LIGHT_SPILL_CUSTOM, "Custom Spill",            "Custom spill light, with automatic parameter detection"),
+                (LIGHT_CONE, "Custom Cone", "Directional cone light with customizable cone angle"),
+                (LIGHT_BILLBOARD, "Custom Billboard Light", "Billboard light that always faces the camera"),
                 (LIGHT_NON_EXPORTING, "Non-Exporting", "Light will not be in the OBJ"),
         ]
     )
@@ -2796,6 +3081,7 @@ _classes = (
     XPlaneDataref,
     XPlaneEmitter,
     XPlaneMagnet,
+    XPlaneSmoke,
     XPlaneWheel,
     XPlaneEmpty,
     XPlaneExportPathDirective,
@@ -2807,6 +3093,7 @@ _classes = (
     XPlaneCockpitRegion,
     XPlaneLOD,
     XPlaneTextureMap,
+    XPlaneStandardShading,
     # complex classes, depending on basic classes
     XPlaneThermalSourceSettings,
     XPlaneWiperSettings,

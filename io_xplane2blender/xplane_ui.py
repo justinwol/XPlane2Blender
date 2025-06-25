@@ -17,6 +17,61 @@ from .xplane_props import *
 from .xplane_helpers import is_path_decal_lib
 
 
+class MATERIAL_OT_xplane_auto_configure_standard_shading(bpy.types.Operator):
+    """
+    Auto-configure Standard Shading based on material analysis
+    """
+    bl_idname = "material.xplane_auto_configure_standard_shading"
+    bl_label = "Auto-Configure Standard Shading"
+    bl_description = "Automatically configure standard shading based on material analysis"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.material and hasattr(context.material, 'xplane')
+
+    def execute(self, context):
+        material = context.material
+        
+        if not material or not hasattr(material.xplane, 'standard_shading'):
+            self.report({'ERROR'}, "Standard shading not available for this material")
+            return {'CANCELLED'}
+        
+        try:
+            from io_xplane2blender.xplane_utils.xplane_material_converter import (
+                detect_pbr_workflow,
+                analyze_standard_shading_compatibility
+            )
+            
+            # Analyze the material
+            pbr_result = detect_pbr_workflow(material)
+            std_result = analyze_standard_shading_compatibility(material)
+            
+            std_shading = material.xplane.standard_shading
+            
+            # Auto-configure based on analysis
+            if pbr_result['is_pbr']:
+                std_shading.enable_standard_shading = True
+                std_shading.specular_ratio = 1.0
+                std_shading.bump_level_ratio = 1.0
+                self.report({'INFO'}, "Enabled standard shading for PBR material")
+            
+            # Configure texture tiling if multiple textures detected
+            if material.use_nodes:
+                texture_count = sum(1 for node in material.node_tree.nodes if node.type == 'TEX_IMAGE')
+                if texture_count > 3:
+                    std_shading.texture_tile_enabled = True
+                    std_shading.texture_tile_x = 2
+                    std_shading.texture_tile_y = 2
+                    self.report({'INFO'}, "Enabled texture tiling for complex material")
+            
+            return {'FINISHED'}
+            
+        except ImportError:
+            self.report({'ERROR'}, "Material analysis functions not available")
+            return {'CANCELLED'}
+
+
 class DATA_PT_xplane(bpy.types.Panel):
     """X-Plane Empty/Light Data Panel"""
 
@@ -62,6 +117,216 @@ class MATERIAL_PT_xplane(bpy.types.Panel):
 
             if version >= 1000:
                 conditions_layout(self.layout, obj.active_material)
+
+
+class MATERIAL_PT_xplane_standard_shading(bpy.types.Panel):
+    """
+    Phase 4 Standard Shading Options Panel
+    """
+    bl_label = "Standard Shading (Phase 4)"
+    bl_idname = "MATERIAL_PT_xplane_standard_shading"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "material"
+    bl_parent_id = "MATERIAL_PT_xplane"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.material and hasattr(context.material, 'xplane')
+
+    def draw_header(self, context):
+        material = context.material
+        if material and hasattr(material.xplane, 'standard_shading'):
+            self.layout.prop(material.xplane.standard_shading, "enable_standard_shading", text="")
+
+    def draw(self, context):
+        layout = self.layout
+        material = context.material
+        
+        if not material or not hasattr(material.xplane, 'standard_shading'):
+            layout.label(text="Standard Shading not available")
+            return
+        
+        std_shading = material.xplane.standard_shading
+        
+        # Enable/disable based on main toggle
+        layout.enabled = std_shading.enable_standard_shading
+        
+        # Add auto-configure button when disabled
+        if not std_shading.enable_standard_shading:
+            row = layout.row()
+            row.operator("material.xplane_auto_configure_standard_shading", text="Auto-Configure", icon='AUTO')
+        
+        # Decal Commands Section
+        box = layout.box()
+        box.label(text="Decal Commands", icon='TEXTURE')
+        
+        # Basic DECAL
+        row = box.row()
+        row.prop(std_shading, "decal_enabled", text="DECAL")
+        if std_shading.decal_enabled:
+            col = box.column()
+            col.prop(std_shading, "decal_scale")
+            col.prop(std_shading, "decal_texture")
+        
+        # DECAL_RGBA
+        row = box.row()
+        row.prop(std_shading, "decal_rgba_enabled", text="DECAL_RGBA")
+        if std_shading.decal_rgba_enabled:
+            col = box.column()
+            col.prop(std_shading, "decal_rgba_texture")
+        
+        # DECAL_KEYED
+        row = box.row()
+        row.prop(std_shading, "decal_keyed_enabled", text="DECAL_KEYED")
+        if std_shading.decal_keyed_enabled:
+            col = box.column()
+            col.label(text="Key Color:")
+            row = col.row()
+            row.prop(std_shading, "decal_keyed_r", text="R")
+            row.prop(std_shading, "decal_keyed_g", text="G")
+            row.prop(std_shading, "decal_keyed_b", text="B")
+            row.prop(std_shading, "decal_keyed_a", text="A")
+            col.prop(std_shading, "decal_keyed_alpha", text="Alpha")
+            col.prop(std_shading, "decal_keyed_texture")
+        
+        # Texture Tiling Section
+        box = layout.box()
+        box.label(text="Texture Tiling", icon='GRID')
+        
+        row = box.row()
+        row.prop(std_shading, "texture_tile_enabled", text="TEXTURE_TILE")
+        if std_shading.texture_tile_enabled:
+            col = box.column()
+            row = col.row()
+            row.prop(std_shading, "texture_tile_x", text="X Tiles")
+            row.prop(std_shading, "texture_tile_y", text="Y Tiles")
+            row = col.row()
+            row.prop(std_shading, "texture_tile_x_pages", text="X Pages")
+            row.prop(std_shading, "texture_tile_y_pages", text="Y Pages")
+            col.prop(std_shading, "texture_tile_texture")
+        
+        # Normal Decals Section
+        box = layout.box()
+        box.label(text="Normal Decals", icon='NORMALS_FACE')
+        
+        row = box.row()
+        row.prop(std_shading, "normal_decal_enabled", text="NORMAL_DECAL")
+        if std_shading.normal_decal_enabled:
+            col = box.column()
+            col.prop(std_shading, "normal_decal_gloss")
+            col.prop(std_shading, "normal_decal_texture")
+        
+        # Material Controls Section
+        box = layout.box()
+        box.label(text="Material Controls", icon='MATERIAL')
+        
+        col = box.column()
+        col.prop(std_shading, "specular_ratio")
+        col.prop(std_shading, "bump_level_ratio")
+        
+        # Alpha Controls Section
+        box = layout.box()
+        box.label(text="Alpha Controls", icon='MOD_OPACITY')
+        
+        row = box.row()
+        row.prop(std_shading, "dither_alpha_enabled", text="DITHER_ALPHA")
+        if std_shading.dither_alpha_enabled:
+            col = box.column()
+            col.prop(std_shading, "dither_alpha_softness")
+            col.prop(std_shading, "dither_alpha_bleed")
+        
+        col = box.column()
+        col.prop(std_shading, "no_alpha_enabled", text="NO_ALPHA")
+        col.prop(std_shading, "no_blend_alpha_cutoff")
+
+
+class MATERIAL_PT_xplane_pbr_analysis(bpy.types.Panel):
+    """
+    PBR Workflow Analysis Panel
+    """
+    bl_label = "PBR Analysis"
+    bl_idname = "MATERIAL_PT_xplane_pbr_analysis"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "material"
+    bl_parent_id = "MATERIAL_PT_xplane_standard_shading"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.material and hasattr(context.material, 'xplane')
+
+    def draw(self, context):
+        layout = self.layout
+        material = context.material
+        
+        if not material:
+            layout.label(text="No material selected")
+            return
+        
+        # Import the analysis functions
+        try:
+            from io_xplane2blender.xplane_utils.xplane_material_converter import (
+                detect_pbr_workflow,
+                analyze_standard_shading_compatibility
+            )
+            
+            # PBR Workflow Analysis
+            pbr_result = detect_pbr_workflow(material)
+            
+            box = layout.box()
+            box.label(text="PBR Workflow Detection", icon='SHADING_RENDERED')
+            
+            if pbr_result['is_pbr']:
+                box.label(text=f"✓ PBR Detected (Confidence: {pbr_result['confidence']:.1%})", icon='CHECKMARK')
+            else:
+                box.label(text="✗ No PBR Workflow Detected", icon='X')
+            
+            if pbr_result['features']:
+                col = box.column()
+                col.label(text="Features:")
+                for feature in pbr_result['features']:
+                    col.label(text=f"  • {feature}")
+            
+            if pbr_result['recommendations']:
+                col = box.column()
+                col.label(text="Recommendations:")
+                for rec in pbr_result['recommendations']:
+                    col.label(text=f"  • {rec}")
+            
+            # Standard Shading Compatibility
+            std_result = analyze_standard_shading_compatibility(material)
+            
+            box = layout.box()
+            box.label(text="Standard Shading Compatibility", icon='MATERIAL')
+            
+            if std_result['compatible']:
+                box.label(text="✓ Compatible with Standard Shading", icon='CHECKMARK')
+            else:
+                box.label(text="✗ Limited Standard Shading Support", icon='X')
+            
+            if std_result['features_supported']:
+                col = box.column()
+                col.label(text="Supported Features:")
+                for feature in std_result['features_supported']:
+                    col.label(text=f"  • {feature}")
+            
+            if std_result['features_recommended']:
+                col = box.column()
+                col.label(text="Recommended Features:")
+                for feature in std_result['features_recommended']:
+                    col.label(text=f"  • {feature}")
+            
+            if std_result['issues']:
+                col = box.column()
+                col.label(text="Issues:")
+                for issue in std_result['issues']:
+                    col.label(text=f"  • {issue}")
+        
+        except ImportError:
+            layout.label(text="Analysis functions not available")
 
 
 class RENDER_PT_xplane(bpy.types.Panel):
@@ -263,6 +528,18 @@ def empty_layout(layout: bpy.types.UILayout, empty_obj: bpy.types.Object):
         sub.prop(emp.emitter_props, "index_enabled", text="")
         sub.active = getattr(emp.emitter_props, "index_enabled")
         sub.prop(emp.emitter_props, "index", text="Index")
+        
+        # Add advanced emitter controls
+        row = box.row()
+        row.prop(emp.emitter_props, "advanced_mode")
+
+        if emp.emitter_props.advanced_mode:
+            advanced_box = box.box()
+            advanced_box.label(text="Advanced Parameters")
+            row = advanced_box.row()
+            row.prop(emp.emitter_props, "intensity")
+            row = advanced_box.row()
+            row.prop(emp.emitter_props, "duration")
     elif emp.special_type == EMPTY_USAGE_MAGNET:
         box = layout.box()
         box.label(text="Magnet Settings")
@@ -274,6 +551,12 @@ def empty_layout(layout: bpy.types.UILayout, empty_obj: bpy.types.Object):
         sub_row.alignment = "RIGHT"
         sub_row.prop(emp.magnet_props, "magnet_type_is_xpad")
         sub_row.prop(emp.magnet_props, "magnet_type_is_flashlight")
+    elif emp.special_type == EMPTY_USAGE_SMOKE_BLACK or emp.special_type == EMPTY_USAGE_SMOKE_WHITE:
+        box = layout.box()
+        smoke_type = "Black" if emp.special_type == EMPTY_USAGE_SMOKE_BLACK else "White"
+        box.label(text=f"Smoke {smoke_type} Settings")
+        row = box.row()
+        row.prop(emp.smoke_props, "size")
     elif emp.special_type == EMPTY_USAGE_WHEEL:
         box = layout.box()
         box.label(text="Landing Gear Settings")
@@ -2203,7 +2486,10 @@ class XPLANE_UL_DatarefSearchList(bpy.types.UIList):
 _XPlaneUITypes = (
     BONE_PT_xplane,
     DATA_PT_xplane,
+    MATERIAL_OT_xplane_auto_configure_standard_shading,
     MATERIAL_PT_xplane,
+    MATERIAL_PT_xplane_standard_shading,
+    MATERIAL_PT_xplane_pbr_analysis,
     OBJECT_PT_xplane,
     RENDER_PT_xplane,
     SCENE_PT_xplane,

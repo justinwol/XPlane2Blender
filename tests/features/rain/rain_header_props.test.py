@@ -73,6 +73,42 @@ class TestRainHeaderProps(XPlaneTestCase):
                     tmpFilename=filepath.stem,
                 )
 
+    def test_phase5_thermal_compatibility(self) -> None:
+        """Test Phase 5 thermal source compatibility features"""
+        filenames = [
+            "test_thermal_source_xp12",
+        ]
+        for filepath in [
+            Path(__dirname__, "fixtures", f"{filename}.obj")
+            for filename in filenames
+        ]:
+            with self.subTest(filepath=filepath):
+                root_name = filepath.stem.replace("test_", "")
+                self.assertExportableRootExportEqualsFixture(
+                    root_object=root_name,
+                    fixturePath=filepath,
+                    filterCallback={"THERMAL_texture", "THERMAL_source"},
+                    tmpFilename=filepath.stem,
+                )
+    
+    def test_complete_weather_system_integration(self) -> None:
+        """Test complete weather system with all Phase 5 features"""
+        filenames = [
+            "test_complete_weather_system",
+        ]
+        for filepath in [
+            Path(__dirname__, "fixtures", f"{filename}.obj")
+            for filename in filenames
+        ]:
+            with self.subTest(filepath=filepath):
+                root_name = filepath.stem.replace("test_", "")
+                self.assertExportableRootExportEqualsFixture(
+                    root_object=root_name,
+                    fixturePath=filepath,
+                    filterCallback={"RAIN_scale", "RAIN_friction", "THERMAL_texture", "THERMAL_source2", "WIPER_texture", "WIPER_param"},
+                    tmpFilename=filepath.stem,
+                )
+
     def test_errors(self) -> None:
         self.exportExportableRoot("thermal_errors",)
         self.assertLoggerErrors(0)
