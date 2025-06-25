@@ -81,7 +81,7 @@ class SCENE_OT_dev_create_lights_txt_summary(bpy.types.Operator):
                 "%s\n%s\n\n" % (param_light.name, " ".join(param_light.light_param_def))
             )
 
-        text_file.write("Old X-Plane 8 Lights\n")
+        text_file.write("Legacy Light Types\n")
         text_file.write("------------\n")
         for other_light in other_lights:
             text_file.write("%s\n" % other_light.name)
@@ -106,33 +106,10 @@ class SCENE_OT_dev_root_names_from_objects(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class SCENE_OT_dev_rerun_updater(bpy.types.Operator):
-    bl_label = "Re-run Updater"
-    bl_idname = "scene.dev_rerun_updater"
-    bl_description = (
-        "Re-runs the updater. This does not undo an update that happened on load!"
-    )
-
-    def execute(self, context):
-        logger = xplane_helpers.logger
-        logger.clear()
-        logger.addTransport(
-            xplane_helpers.XPlaneLogger.InternalTextTransport("Updater Log")
-        )
-        logger.addTransport(xplane_helpers.XPlaneLogger.ConsoleTransport())
-
-        fake_version_str = bpy.context.scene.xplane.dev_fake_xplane2blender_version
-        io_xplane2blender.xplane_updater.update(
-            xplane_helpers.VerStruct.parse_version(fake_version_str), logger
-        )
-        return {"FINISHED"}
-
-
 _ops_dev = (
     SCENE_OT_dev_apply_default_material_to_all,
     SCENE_OT_dev_create_lights_txt_summary,
     SCENE_OT_dev_root_names_from_objects,
-    SCENE_OT_dev_rerun_updater,
 )
 
 register, unregister = bpy.utils.register_classes_factory(_ops_dev)

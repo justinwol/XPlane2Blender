@@ -32,6 +32,26 @@ class TestRainHeaderProps(XPlaneTestCase):
                     filterCallback={"RAIN_scale", "THERMAL", "WIPER"},
                     tmpFilename=filepath.stem,
                 )
+    
+    def test_enhanced_rain_features(self) -> None:
+        """Test enhanced rain system features for X-Plane 12+"""
+        filenames = [
+            "test_rain_friction_options",
+            "test_enhanced_thermal_options",
+            "test_enhanced_wiper_options",
+        ]
+        for filepath in [
+            Path(__dirname__, "fixtures", f"{filename}.obj")
+            for filename in filenames
+        ]:
+            with self.subTest(filepath=filepath):
+                root_name = filepath.stem.replace("test_", "")
+                self.assertExportableRootExportEqualsFixture(
+                    root_object=root_name,
+                    fixturePath=filepath,
+                    filterCallback={"RAIN_scale", "RAIN_friction", "THERMAL", "WIPER"},
+                    tmpFilename=filepath.stem,
+                )
 
     def test_no_options(self) -> None:
         filenames = [

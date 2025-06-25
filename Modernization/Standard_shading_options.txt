@@ -1,0 +1,186 @@
+X-Plane provides a rich set of shading options for almost all of the art asset types in the scenery system.  This document provides a file-format level reference for these common options, as well as brief descriptions of what the options do.
+
+Not every option is available in every file format; the chart at the end of the document lists which ‘extended’ options are available in which formats.
+
+The detail commands and tiling commands are mutually exclusive – that is, they cannot be used together.
+
+X-Plane scenery art asset control files are text files with one instruction per line.  The lines are listed here individually.
+
+Commands to Control Texturing
+The texturing commands specify the albedo (daytime) and possible emissive (night lit) texture.  Both textures are specified by file path relative to the parent directory of the art asset.
+
+Emissive textures are optional; omitting the TEXTURE_LIT directive means no lit texture.  Albedo textures are mandatory.
+
+The “no-wrap” variants provide edge clamping to avoid bleeding from one side of an orthophoto to another; they are only available for .ter and .pol files.  The default commands provide wrap-around blending, which make textures suitable for tiling.
+
+TEXTURE [filename]
+TEXTURE_NOWRAP [filename]
+TEXTURE_LIT [filename]
+TEXTURE_LIT_NOWRAP [filename]
+Day time textures may have an optional alpha channel; see alpha options below for its interpretation.  Lit textures may have an optional alpha channel, but it is not recommended.
+
+Commands to Control Normal Mapping
+The normal map texturing commands add a normal map to the shader.  Like the texturing commands, the no-wrap variant clamps edges and is available only for .ter and .pol files.
+
+Normal maps should be in PNG format and can be in one of three formats:
+
+RGB files provide tangent-space normal maps.
+RGBA files provide tangent space normal maps in the RGB channels and the specular level in the alpha channel.
+Gray-scale files provide the specular level in the gray channel.
+TEXTURE_NORMAL [ratio] [filename]
+TEXTURE_NORMAL_NOWRAP [ratio] [filename]
+Ratio is a decimal number specifying the resolution of the normal map relative to the albedo, e.g. a ratio of 4.0 means the normal map repeats 4 times for every tile of the albedo texture.  This ratio can be used to change ‘noisy’ normal maps to be higher resolution.
+
+SPECULAR [ratio]
+If present, the SPECULAR command provides a multiplier to the specularity level of the material.  This value is multiplied by the specular level channel of the normal map if present.  Ratio should be in the range 0..1.  A few special cases to note:
+
+If the SPECULAR directive is present but no normal map is present, the specularity is applied, in a uniform way.  (In other words, SPECULAR 1.0 without a normal map makes a uniformly shiny surface.)
+If the SPECULAR directive is omitted but a normal map is present, the specular multiplier is defaulted to 1.0 – in other words, you get the specularity of the normal map, unmodified.
+If the SPECULAR directive is omitted and the normal is also omitted, the specular multiplier is defaulted to 0.0 – in other words, you get a matte surface.
+BUMP_LEVEL [ratio]
+If present, BUMP_LEVEL scales the height of the normal map bumps; ratio should be in the range of 0..1, where 1.0 leaves the bump map unmodified.  (This directive is designed to reduce bumpiness.)  If BUMP_LEVEL is omitted, the default multiplier is 1.0 (e.g. the normal map is not modified).
+
+Commands to Control Decals and Normal Map Decals
+X-Plane contains a new decal shading stage as part of some of the art assets.  The decal stage blends a higher resolution repeating texture into a base texture to create the illusion of high resolution.  Because the decal is part of the shading process (and not an additional layer on top of the terrain), the performance impact is quite low.
+
+[X-Plane 12.1.0+] The decals and newly added normal map decals can also be used in .obj files.
+
+Shaders can use up to two decal commands (neither of which are required).  Shaders can also refer to a separate .dcl file (which might be in the library); if the .dcl file contains two decal directives, then no other decals can be included.
+
+(In other words, you get two decal effects, not two decal commands – one command loading two effects from one file uses up the entire decal budget.)
+
+General conventions: the decal commands take a scaling ratio, which specifies how many times the decal repeats for each iteration of the albedo texture.  Textures are specified as relative file paths.
+
+The decal shaders can create decals from either the RGB part of the decal texture, the alpha channel (treated as a gray-scale decal that takes on the ‘tint’ of the albedo) or potentially both; each decal shader has to use the same scale for both RGB and A, but the two separate decal shaders can use separate scales.
+
+If you only need a single-channel decal, use a gray-scale PNG to load an “alpha-only” decal into X-Plane; this can save significant VRAM.  On modern video cards, an RGB decal takes the same memory as an RGBA decal, so consider loading something into the alpha channel – you’re paying for the memory no matter what.
+
+DECAL [scale] [texture file]
+DECAL_RGBA [scale] [texture file]
+These commands add a decal using only the alpha channel and only the RGB channel of the decal file, respectively.
+
+DECAL_KEYED [scale] [r] [g] [b] [a] [alpha] [texture file]
+This command creates a decal whose application is “color-keyed” to the albedo texture.  In other words, which decal is applied from your texture (RGB or A) will depend on the color of the albedo.
+
+The values of R, G, B and A are coefficients that key in the RGB texture based on the RGBA values of your albedo.  In other words, if you set G to 1.0 then you will get 100% of your RGB decal when the green channel of the albedo is at 100%.  (This would be a good way to bring a grass decal in over vegetation, for example.)
+
+The alpha parameter describes how much to bring in the alpha-channel decal when the RGB channel decal is not used.  If alpha is 0.0, then the alpha-channel decal is never used; if it is 1.0, it is used for any pixels where the RGB decal is not used.  Generally you would set this to 1.0 if you have two complementary decals, e.g. a vegetation decal in RGB (keyed to green) and a concrete decal in the alpha channel.
+
+DECAL_PARAMS [scale] [dither]
+      [r] [g] [b] [a] [m] [k] 
+      [r] [g] [b] [a] [m] [k] [texture file]
+DECAL_PARAMS_PROJ [scale_x] [scale_y] [dither]
+      [r] [g] [b] [a] [m] [k]
+      [r] [g] [b] [a] [m] [k] [texture file]
+Note: these advanced commands take all of their parameters on one line; they are only listed in multi-line format for readability.  They are not for the faint of heart.
+
+These commands provide complete low level access to the decal shader.  For the non-projected form, scale is the ratio of repeats (higher numbers mean the decal repeats faster than the albedo).  For the projected format, the decal does not follow the albedo, but rather repeats every scale_x meters horizontally and every scale_y meters vertically.
+
+Dithering: increasing this parameter from 0 to 1 mixes the alpha channel of the decal into the alpha channel of the albedo.  This can be used to create high frequency alpha variation (for examlpe, for the edges of textures).
+
+Tip: to create a ‘ragged edge’ look for a texture with alpha, put an alpha decal on it, turn up the dither parameter (to route the decal alpha to the main alpha) and then use the dithering stage below (See alpha below) to ‘cut’ the alpha at a fixed level.  The result will be a high frequency ragged edge, useful for making the edges of dirt roads and other rough surfaces.
+
+Following the dither are two sets of six parameters that increase the decal.  The first four (RGBA) bring in the decal based on the albedo’s red, green, blue and alpha channel.
+
+The fifth parameter (“m” for modulator) brings in the decal based on another part of the shader; this parameter has no effect except in certain cases documented below.  Finally the constant (“k”) term brings in the decal no matter what.
+
+Note that the levels of all parameters are added before the decal is brought in.  So, for example, if you have k = 1, G = -1, and all else are 0, you will get a decal that shows up except when the albedo is green (e.g. a decal that avoids vegetation).
+
+The first set of six parameters sets levels for the RGB decal, the second six for the alpha decal.
+
+DECAL_LIB [file path or library path]
+What, you don’t want to hand-enter several numeric parameters?  Decals can be loaded from other files, which can be in the library; DECAL_LIB loads a decal from another file into an existing art asset.  Whether this command uses one or two decal shaders depends on the particular file loaded.
+
+[X-Plane 12.1.0+] These commands also have their normal map counterparts, allowing decaling for normal maps:
+
+NORMAL_DECAL [scale] [texture file] [gloss]
+
+NORMAL_DECAL_KEYED [scale] [r] [g] [b] [a] [texture file] [gloss]
+
+NORMAL_DECAL_PARAMS [scale] [r] [g] [b] [a] [m] [k] [texture file] [gloss]
+NORMAL_DECAL_PARAMS_PROJ [scale_x] [scale_y] [r] [g] [b] [a] [m] [k] [texture file] [gloss]
+Commands to Control Blending and Alpha
+These commands control how the alpha channel of a texture is processed.  They take effect after decaling; if the dither option is used in decaling, the alpha’s decal may be included in these calculations.
+
+NO_ALPHA
+This command strips all alpha information from the shader.  The most common use for this command is to recycle a texture whose alpha channel contains noise in a context where the alpha effect is not desired.
+
+DITHER_ALPHA [softness] [bleed]
+This command creates a dithering effect instead of an alpha-translucency effect where alpha is not 1.0.
+
+The softness parameter needs to be greater than 0.0 and less than 1.0; it describes the softness of the dither – numbers closer to 1.0 look more like conventional translucent alpha; numbers closer to 0.0 look more like a hard cutoff.
+
+Bleed is how much of the original alpha ‘bleeds through’ when the dithering effect is not dominant. A bleed of 1.0 would mean the shader is at least as opaque as without the dither; a bleed of 0 means we have only dither.
+
+NO_BLEND [alpha cutoff level]
+No-blend cuts off alpha blending on the graphics card; all pixels whose alpha is below the cutoff level are discarded, all that are above are opaque.
+
+Alpha blending can cause Z-buffer artifacts, including halos of sky around vegetation and missing scenery through translucent windows.  If you can live without blending, you can use NO_BLEND to get a hard alpha cut that will not have z-buffer artifacts.
+
+Note: DITHER_ALPHA can make cut-off effects but does not fix z-buffer problems; use NO_BLEND when the z-buffer is the problem.
+
+Commands to Control Real-Time Shadows
+
+NO_SHADOW
+The command NO_SHADOW exempts the art asset from shadow generation.  Besides fixing cases where shadows look ugly (e.g. billboards) it can improve framerate.
+
+Misc. Commands
+You can enable or disable two-sided drawing with
+
+TWO_SIDED [on/off]
+The on/off value should be 1 for on or 0 for off.  Two-sided geometry is generally not recommended in most scenery-system cases.
+
+One exception: .for (forest files) do not accept this directive; forest billboards are always drawn two-sided.
+
+Tiling Shader Options
+Some art assets allow for the use of tiling shader commands.  The tiling shader breaks up your albedo (and lit) textures into tiles and reorganizes them to create tiling patterns that repeat over a larger distance.
+
+TEXTURE_TILE [x_tiles] [y_tiles] [x_pages] [y_pages] [texture]
+This turns on texture tiling, which divides the albedo into a grid and randomly permutes the tiles like a number puzzle. This can help hide repetition.
+
+x_tiles and y_tiles define the number of grid divisions for your albedo texture.
+x_pages and y_pages are the number of pixels in the mapping texture used to pick tiles.
+map.png is a texture used to pick tiles.
+If you don’t provide map.png, X-PLane uses a noise texture – in that case, use 256 x256 for pages.
+If you provide a ‘mapping’ tile, the red channel selects an X tile offset, and the green channel defines a green channel offset; the colors are mapped evenly based on the number of tiles.  For example, if you set up 8 tiles in X, then the red channel values for the 8 tiles are 0,32,64,96,128,160,192,224.
+
+Detailing Extension
+The detailing commands use two additional textures to provide additional day time texturing options:
+
+A control texture is a texture whose four channels control the use of other textures.  The control texture uses the same UV map as the albedo texture.
+A terrain texture runs at its own resolution and provides a separate source of tiling terrain, e.g. a repeating grass or concrete texture.
+The textures are specified as follows:
+
+TEXTURE_DETAIL [x_res] [y_res] [texture_file]
+TEXTURE_NORMAL_DETAIL [x_res] [y_res] [texture_file]
+TEXTURE_CONTROL [texture_file]
+TEXTURE_TERRAIN [texture_file]
+TEXTURE_MODULATOR [texture_file
+x_res and y_res set the size of the entire terrain in texture (in meters). The control texture will precisely overlay the albedo.
+
+The control texture’s channels do the following:
+
+The red channel brings in the RGB decal and (as of X-Plane 12.1.0) the first normal map decal – more red = more decal.
+The green channel brings in the terrain texture – more green = more terrain. The terrain always appears under the translucent parts of the albedo (as defined by the albedo’s alpha). Think of this as a separate layer mask for a terrain layer that is fully under the albedo.
+The blue channel brings in the alpha-channel decal and (as of X-Plane 12.1.0) the second normal map decal (as a gray-scale decal). More blue = more decal.
+The alpha channel creates static baked shadows. An alpha of 0.0 is most shadowed and an alpha of 1.0 is not shadowed. When the sim is in dynamic shadow mode, the baked shadows are shown only in visibility ranges where dynamic shadows do not apply.
+While the terrain acts as a layer “under” the albedo, both decals act on top of both. (Technically, the gray-scale detail does apply on top of the RGB detail). The The baked shadows affect all layers.
+
+The level of decals are controlled not only by the control red/blue channel, but by the decal’s “m” control (see above).  Basically the “m” modulator on the decal is multiplied by the control channel’s red and blue to provide the final decal level.
+
+When a second decal is used, the modulators are reversed – the red channel controls the alpha of the second decal and the blue channel controls the rgb of the second decal.
+
+[X-Plane 12.1.0+] The TEXTURE_MODULATOR command allows saving VRAM by eliminating the terrain texture and baked shadow channels of TEXTURE_CONTROL, so the red channel of the TEXTURE_MODULATOR corresponds to the red channel of TEXTURE_CONTROL and the green channel of TEXTURE_MODULATOR corresponds to the blue channel of TEXTURE_CONTROL.
+
+Availability of Extensions
+All basic functionality is available in all art asset types.  Tiling and detailing are mutually exclusive and only available in some art asset types.  No-wrap albedo/lit textures are only available in .ter and .pol files.
+
+Art Asset	No-wrap	Detailing	Tiling
+Facades	–	–	–
+Auto-Gen	–	√	–
+.Pol	√	√	√
+.lin	–	–	–
+road.net	–	√	√
+.ter	√	√	√
+.bch	–	–	√
+OBJ8	–	√	–

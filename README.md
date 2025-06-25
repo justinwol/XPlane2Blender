@@ -3,17 +3,23 @@
 [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
 
 # Introduction
-This addon for Blender 2.80 and up makes it possible to export models made in Blender to the X-Plane object format (.obj). 
-An experimental importer has been added in 4.2.0-Alpha 1 and can be found here: https://github.com/X-Plane/XPlane2Blender/releases/tag/v4.2.0-alpha.1 
+This addon for Blender 4.0+ makes it possible to export models made in Blender to the X-Plane object format (.obj), with full support for X-Plane 12+ features including enhanced rain systems, advanced landing gear animations, and modern material workflows.
+
+**Version 5.0.0 - Major Modernization Release**
+- **Blender 4.0+ Compatibility**: Fully updated for modern Blender workflows
+- **X-Plane 12+ Features**: Enhanced rain, landing gear, and material systems
+- **Comprehensive Documentation**: New user guides and migration documentation
+- **Enhanced Testing**: Robust test suite for reliability
 
 ## Contact Us
 The best way to contact us is through [a bug report](https://github.com/X-Plane/XPlane2Blender/issues). Otherwise, e-mail **ted at x-plane dot com**, especially if you're worried about the security of your models while we debug them.
 
 ## General Requirements
-- Blender 2.80-83. 2.90 seems to work but is not officially supported
+- **Blender 4.0+** (Required for version 5.0.0+)
+- **X-Plane 12+** (Recommended, backward compatibility maintained)
 - For the greatest stability, use the latest non-beta version of [XPlane2Blender](https://github.com/X-Plane/XPlane2Blender/releases/latest)
 
-XPlane2Blender for Blender 2.79 can still be downloaded from the releases page, but it isn't supported anymore. An experimental converter for Blender 2.49 projects is also available and is supported.
+**Legacy Support**: XPlane2Blender for older Blender versions can still be downloaded from the releases page, but only version 5.0.0+ receives active support and new features.
 
 ## Automatic Installation
 **Note: This process will override an existing copy of the plugin!** To backup your current version of the plugin, see the manual instructions in the [manual](https://xp2b-docs.gitbook.io/xplane2blender-docs/index-3/34_installation). **Always make backups of your work, especially when beta testing, as newer versions may not be backwards compatibility.** Read the release notes for more details.

@@ -1370,10 +1370,8 @@ class XPlaneManipulator:
                 XPlaneAttribute(attr, fmt_value(value, self.type))
             )
 
-            ver_ge_1100 = int(bpy.context.scene.xplane.version) >= int(VERSION_1110)
-
             # 2. ATTR_axis_detented (DRAG_AXIS_DETENT)
-            if (self.type == MANIP_DRAG_AXIS_DETENT) and ver_ge_1100:
+            if self.type == MANIP_DRAG_AXIS_DETENT:
                 if self.manip.autodetect_datarefs:
                     detent_axis_dataref = next(iter(detent_axis_bone.animations))
                     # A nice little bit of useability for if someone disables autodetect datarefs
@@ -1635,7 +1633,6 @@ class XPlaneManipulator:
             # add mouse wheel delta
             if (
                 self.type in MANIPULATORS_MOUSE_WHEEL
-                and bpy.context.scene.xplane.version >= VERSION_1050
                 and self.manip.wheel_delta != 0
             ):
                 self.xplanePrimative.cockpitAttributes.add(

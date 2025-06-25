@@ -6,8 +6,8 @@
   #   #   #  #   #  ##  ##  #   # #   # #     #   #   # #   #  #  ##  #  #   #   #  ##  #  #
  #####   ##  ## ##  #    ####  ####  ## ##   #####   ## ## ##  ##  ####   ###   ##  #   ####  #
 
-This file is also an important file for the data model! See the special care
-instructions in xplane_updater.py before changing, especially for changing or removing constants!
+This file contains important constants for the X-Plane 12+ data model.
+Please use care when changing or removing constants!
 
 Please sort this file's sections alphabetically
 """
@@ -30,32 +30,6 @@ def _get_resources_folder() -> str:
 
 ADDON_RESOURCES_FOLDER = _get_resources_folder()
 
-# Section: Build Types
-# Names for builds types stages we have in
-# our software life cycle
-BUILD_TYPE_ALPHA = "alpha"
-BUILD_TYPE_BETA = "beta"
-BUILD_TYPE_DEV = "dev"  # Our pre-alpha stage, generally the most unstable build type
-BUILD_TYPE_LEGACY = (
-    "leg"  # Any build before the XPlane2BlenderVersion property (< 3.4.0-beta.5)
-)
-BUILD_TYPE_RC = "rc"
-
-# Types of builds available, ordered in tuple in ascending precedence
-BUILD_TYPES = (
-    BUILD_TYPE_LEGACY,
-    BUILD_TYPE_DEV,
-    BUILD_TYPE_ALPHA,
-    BUILD_TYPE_BETA,
-    BUILD_TYPE_RC,
-)
-
-# The string for having no build number, chosen for being descriptive,
-# same length as YYYYMMDDHHMMSS, and having no numbers
-BUILD_NUMBER_NONE = "NO_BUILD_NUMBR"
-
-# The string found in scene.xplane2blender after 3.4.0-beta.5
-DEPRECATED_XP2B_VER = "DEPRECATED"
 
 # Used in determining whether the difference between values
 # is large enough to warrent emitting an animation
@@ -75,9 +49,46 @@ EMPTY_USAGE_EMITTER_SOUND = "emitter_sound"
 EMPTY_USAGE_MAGNET = "magnet"
 EMPTY_USAGE_WHEEL = "wheel"
 
-# Kept for historical reasons for the updater
-EXPORT_MODE_LAYERS = "layers"
-EXPORT_MODE_ROOT_OBJECTS = "root_objects"
+# Landing Gear Constants
+GEAR_TYPE_NOSE = "NOSE"
+GEAR_TYPE_MAIN_LEFT = "MAIN_LEFT"
+GEAR_TYPE_MAIN_RIGHT = "MAIN_RIGHT"
+GEAR_TYPE_TAIL = "TAIL"
+GEAR_TYPE_CUSTOM = "CUSTOM"
+
+# Standard gear index assignments
+GEAR_INDEX_NOSE = 0
+GEAR_INDEX_MAIN_LEFT = 1
+GEAR_INDEX_MAIN_RIGHT = 2
+GEAR_INDEX_TAIL = 3
+
+# Maximum gear and wheel indices
+MAX_GEAR_INDEX = 15
+MAX_WHEEL_INDEX = 7
+
+# Landing gear naming patterns for auto-detection
+GEAR_NAME_PATTERNS = {
+    "nose": GEAR_TYPE_NOSE,
+    "front": GEAR_TYPE_NOSE,
+    "main_left": GEAR_TYPE_MAIN_LEFT,
+    "main_l": GEAR_TYPE_MAIN_LEFT,
+    "left_main": GEAR_TYPE_MAIN_LEFT,
+    "left": GEAR_TYPE_MAIN_LEFT,
+    "main_right": GEAR_TYPE_MAIN_RIGHT,
+    "main_r": GEAR_TYPE_MAIN_RIGHT,
+    "right_main": GEAR_TYPE_MAIN_RIGHT,
+    "right": GEAR_TYPE_MAIN_RIGHT,
+    "tail": GEAR_TYPE_TAIL,
+    "rear": GEAR_TYPE_TAIL,
+}
+
+# Common gear datarefs
+GEAR_DATAREFS = {
+    "retraction": "sim/aircraft/parts/acf_gear_retract",
+    "door": "sim/aircraft/parts/acf_gear_door",
+    "position": "sim/aircraft/parts/acf_gear_deploy",
+    "steering": "sim/aircraft/parts/acf_gear_steer",
+}
 
 EXPORT_TYPE_AIRCRAFT = "aircraft"
 EXPORT_TYPE_COCKPIT = "cockpit"
@@ -130,10 +141,10 @@ MANIP_WRAP = "wrap"
 MANIP_TOGGLE = "toggle"
 MANIP_NOOP = "noop"
 
-# 10.10 and greater manips
+# Modern X-Plane manipulator types
 MANIP_DRAG_AXIS_PIX = "drag_axis_pix"
 
-# 10.50 and greater manips
+# Enhanced X-Plane manipulator types
 MANIP_AXIS_KNOB = "axis_knob"
 MANIP_AXIS_SWITCH_LEFT_RIGHT = "axis_switch_left_right"
 MANIP_AXIS_SWITCH_UP_DOWN = "axis_switch_up_down"
@@ -218,16 +229,54 @@ LAYER_GROUP_OBJECTS = "objects"
 LAYER_GROUP_LIGHT_OBJECTS = "light_objects"
 LAYER_GROUP_CARS = "cars"
 
-VERSION_900 = "900"
-VERSION_1000 = "1000"
-VERSION_1010 = "1010"
-VERSION_1040 = "1040"
-VERSION_1050 = "1050"
-VERSION_1100 = "1100"
-VERSION_1110 = "1110"
-VERSION_1130 = "1130"
+# X-Plane 12+ versions only - legacy versions removed for modernization
 VERSION_1200 = "1200"
 VERSION_1210 = "1210"
+
+# Rain/Weather System Constants for X-Plane 12+
+RAIN_SCALE_MIN = 0.1
+RAIN_SCALE_MAX = 1.0
+RAIN_SCALE_DEFAULT = 1.0
+
+# Rain friction constants
+RAIN_FRICTION_MIN = 0.0
+RAIN_FRICTION_MAX = 2.0
+RAIN_FRICTION_DRY_DEFAULT = 1.0
+RAIN_FRICTION_WET_DEFAULT = 0.3
+
+# Thermal source constants
+MAX_THERMAL_SOURCES = 4
+THERMAL_DEFROST_TIME_MIN = 0.0
+THERMAL_DEFROST_TIME_MAX = 3600.0  # 1 hour max
+
+# Wiper system constants
+MAX_WIPERS = 4
+WIPER_THICKNESS_MIN = 0.0
+WIPER_THICKNESS_MAX = 1.0
+WIPER_THICKNESS_DEFAULT = 0.001
+
+# Wiper bake resolution options
+WIPER_BAKE_RESOLUTION_512 = "512"
+WIPER_BAKE_RESOLUTION_1024 = "1024"
+WIPER_BAKE_RESOLUTION_2048 = "2048"
+WIPER_BAKE_RESOLUTION_4096 = "4096"
+
+# Wiper bake quality options
+WIPER_BAKE_QUALITY_DRAFT = "draft"
+WIPER_BAKE_QUALITY_STANDARD = "standard"
+WIPER_BAKE_QUALITY_HIGH = "high"
+WIPER_BAKE_QUALITY_ULTRA = "ultra"
+
+# Thermal source priority modes
+THERMAL_PRIORITY_SEQUENTIAL = "sequential"
+THERMAL_PRIORITY_PRIORITY = "priority"
+THERMAL_PRIORITY_SIMULTANEOUS = "simultaneous"
+
+# Validation and error reporting levels
+VALIDATION_LEVEL_MINIMAL = "minimal"
+VALIDATION_LEVEL_STANDARD = "standard"
+VALIDATION_LEVEL_VERBOSE = "verbose"
+VALIDATION_LEVEL_DEBUG = "debug"
 
 SURFACE_TYPE_NONE = "none"
 SURFACE_TYPE_WATER = "water"
@@ -236,6 +285,58 @@ SURFACE_TYPE_ASPHALT = "asphalt"
 SURFACE_TYPE_GRASS = "grass"
 SURFACE_TYPE_DIRT = "dirt"
 SURFACE_TYPE_GRAVEL = "gravel"
+
+# Modern Texture System Constants for X-Plane 12+
+TEXTURE_MAP_USAGE_NORMAL = "normal"
+TEXTURE_MAP_USAGE_MATERIAL_GLOSS = "material_gloss"
+TEXTURE_MAP_USAGE_GLOSS = "gloss"
+TEXTURE_MAP_USAGE_METALLIC = "metallic"
+TEXTURE_MAP_USAGE_ROUGHNESS = "roughness"
+
+# Texture channel constants
+TEXTURE_CHANNEL_R = "R"
+TEXTURE_CHANNEL_G = "G"
+TEXTURE_CHANNEL_B = "B"
+TEXTURE_CHANNEL_A = "A"
+TEXTURE_CHANNEL_RG = "RG"
+TEXTURE_CHANNEL_RGB = "RGB"
+TEXTURE_CHANNEL_RGBA = "RGBA"
+
+# Supported texture formats for X-Plane
+TEXTURE_FORMAT_PNG = ".png"
+TEXTURE_FORMAT_DDS = ".dds"
+TEXTURE_FORMAT_JPG = ".jpg"
+TEXTURE_FORMAT_JPEG = ".jpeg"
+
+SUPPORTED_TEXTURE_FORMATS = [
+    TEXTURE_FORMAT_PNG,
+    TEXTURE_FORMAT_DDS,
+    TEXTURE_FORMAT_JPG,
+    TEXTURE_FORMAT_JPEG
+]
+
+# Texture validation constants
+TEXTURE_RESOLUTION_MIN = 1
+TEXTURE_RESOLUTION_MAX = 8192
+TEXTURE_RESOLUTION_RECOMMENDED_MAX = 4096
+
+# Power of two texture resolutions (recommended)
+POWER_OF_TWO_RESOLUTIONS = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192]
+
+# Blender material node types for auto-detection
+BLENDER_NODE_PRINCIPLED_BSDF = "ShaderNodeBsdfPrincipled"
+BLENDER_NODE_NORMAL_MAP = "ShaderNodeNormalMap"
+BLENDER_NODE_IMAGE_TEXTURE = "ShaderNodeTexImage"
+BLENDER_NODE_SEPARATE_RGB = "ShaderNodeSeparateRGB"
+BLENDER_NODE_SEPARATE_XYZ = "ShaderNodeSeparateXYZ"
+
+# Blender material input socket names for mapping
+BLENDER_INPUT_BASE_COLOR = "Base Color"
+BLENDER_INPUT_METALLIC = "Metallic"
+BLENDER_INPUT_ROUGHNESS = "Roughness"
+BLENDER_INPUT_NORMAL = "Normal"
+BLENDER_INPUT_ALPHA = "Alpha"
+BLENDER_INPUT_EMISSION = "Emission"
 SURFACE_TYPE_LAKEBED = "lakebed"
 SURFACE_TYPE_SNOW = "snow"
 SURFACE_TYPE_SHOULDER = "shoulder"

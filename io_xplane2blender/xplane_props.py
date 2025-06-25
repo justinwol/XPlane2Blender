@@ -85,170 +85,6 @@ undebatable alphabetical listing.
 """
 
 
-# Internal variable to enable and disable the ability to update the value of XPlane2Blender's properties
-# DO NOT CHANGE OUTSIDE OF safe_set_version_data!
-_version_safety_off = False
-
-
-class XPlane2BlenderVersion(bpy.types.PropertyGroup):
-    """
-    Contains useful methods for getting information about the
-    version and build number of XPlane2Blender
-
-    Names are usually in the format of
-    major.minor.release-(alpha|beta|dev|leg|rc)\.[0-9]+)\+\d+\.(YYYYMMDDHHMMSS)
-    """
-
-    # Guards against being updated without being validated
-    def update_version_property(self, context):
-        if _version_safety_off is False:
-            raise Exception(
-                "Do not modify version property outside of safe_set_version_data!"
-            )
-        return None
-
-    # Property: addon_version
-    #
-    # Tuple of Blender addon version, (major, minor, revision)
-    addon_version: bpy.props.IntVectorProperty(
-        name="XPlane2Blender Addon Version",
-        description="The version of the addon (also found in it's addon information)",
-        default=xplane_config.CURRENT_ADDON_VERSION,
-        update=update_version_property,
-        size=3,
-    )
-
-    # Property: build_type
-    #
-    # The type of build this is, always a value in BUILD_TYPES
-    build_type: bpy.props.StringProperty(
-        name="Build Type",
-        description="Which iteration in the development cycle of the chosen build type we're at",
-        default=xplane_config.CURRENT_BUILD_TYPE,
-        update=update_version_property,
-    )
-
-    # Property: build_type_version
-    #
-    # The iteration in the build cycle, 0 for dev and legacy, > 0 for everything else
-    build_type_version: bpy.props.IntProperty(
-        name="Build Type Version",
-        description="Which iteration in the development cycle of the chosen build type we're at",
-        default=xplane_config.CURRENT_BUILD_TYPE_VERSION,
-        update=update_version_property,
-    )
-
-    # Property: data_model_version
-    #
-    # The version of the data model, tracked separately. Always incrementing.
-    data_model_version: bpy.props.IntProperty(
-        name="Data Model Version",
-        description="Version of the data model (constants,props, and updater functionality) this version of the addon is. Always incrementing on changes",
-        default=xplane_config.CURRENT_DATA_MODEL_VERSION,
-        update=update_version_property,
-    )
-
-    # Property: build_number
-    #
-    # If run as a public facing build, this value will be replaced
-    # with the YYYYMMSSHHMMSS at build creation date in UTC.
-    # Otherwise, it defaults to xplane_constants.BUILD_NUMBER_NONE
-    build_number: bpy.props.StringProperty(
-        name="Build Number",
-        description="Build number of XPlane2Blender. If xplane_constants.BUILD_NUMBER_NONE, this is a development or legacy build!",
-        default=xplane_config.CURRENT_BUILD_NUMBER,
-        update=update_version_property,
-    )
-
-    # Method: safe_set_version_data
-    #
-    # The only way to change version data! Use responsibly for suffer the Dragons described above!
-    # Returns True if it succeeded, or False if it failed due to invalid data. debug_add_to_history only works
-    # when the data is valid
-    #
-    # Passing nothing in results in no change
-    def safe_set_version_data(
-        self,
-        addon_version=None,
-        build_type=None,
-        build_type_version=None,
-        data_model_version=None,
-        build_number=None,
-        debug_add_to_history=False,
-    ):
-        if addon_version is None:
-            addon_version = self.addon_version
-        if build_type is None:
-            build_type = self.build_type
-        if build_type_version is None:
-            build_type_version = self.build_type_version
-        if data_model_version is None:
-            data_model_version = self.data_model_version
-        if build_number is None:
-            build_number = self.build_number
-
-        if xplane_helpers.VerStruct(
-            addon_version,
-            build_type,
-            build_type_version,
-            data_model_version,
-            build_number,
-        ).is_valid():
-            global _version_safety_off
-            _version_safety_off = True
-            self.addon_version = addon_version
-            self.build_type = build_type
-            self.build_type_version = build_type_version
-            self.data_model_version = data_model_version
-            self.build_number = build_number
-            _version_safety_off = False
-            if debug_add_to_history:
-                xplane_helpers.VerStruct.add_to_version_history(bpy.context.scene, self)
-            return True
-        else:
-            return False
-
-    # Method: make_struct
-    #
-    # Make a VerStruct version of itself
-    def make_struct(self):
-        return xplane_helpers.VerStruct(
-            self.addon_version,
-            self.build_type,
-            self.build_type_version,
-            self.data_model_version,
-            self.build_number,
-        )
-
-    # Addon string in the form of "m.m.r", no parenthesis
-    def addon_version_clean_str(self):
-        return ".".join(map(str, self.addon_version))
-
-    # Method: __repr__
-    #
-    # repr and repr of VerStruct are the same. It is used as a key for scene.xplane.xplane2blender_ver_history
-    def __repr__(self) -> str:
-        return "(%s, %s, %s, %s, %s)" % (
-            "(" + ",".join(map(str, self.addon_version)) + ")",
-            "'" + str(self.build_type) + "'",
-            str(self.build_type_version),
-            str(self.data_model_version),
-            "'" + str(self.build_number) + "'",
-        )
-
-    # Method: __str__
-    #
-    # str and str of VerStruct are the same. It is used for printing to the user
-    def __str__(self) -> str:
-        return "%s-%s.%s+%s.%s" % (
-            ".".join(map(str, self.addon_version)),
-            self.build_type,
-            self.build_type_version,
-            self.data_model_version,
-            self.build_number,
-        )
-
-
 # fmt: off
 class XPlaneAxisDetentRange(bpy.types.PropertyGroup):
     start: bpy.props.FloatProperty(
@@ -508,14 +344,73 @@ class XPlaneMagnet(bpy.types.PropertyGroup):
 class XPlaneWheel(bpy.types.PropertyGroup):
     gear_index: bpy.props.IntProperty(
         name="Gear Index",
+        description="Landing gear index (0=nose, 1=left main, 2=right main, etc.)",
         min=0,
+        max=15,
         default=0
     )
 
     wheel_index: bpy.props.IntProperty(
         name="Wheel Index",
+        description="Wheel index within the gear (0=first wheel, 1=second wheel, etc.)",
         min=0,
+        max=7,
         default=0
+    )
+    
+    gear_type: bpy.props.EnumProperty(
+        name="Gear Type",
+        description="Type of landing gear",
+        items=[
+            ("NOSE", "Nose Gear", "Nose/front landing gear", 0),
+            ("MAIN_LEFT", "Main Left", "Left main landing gear", 1),
+            ("MAIN_RIGHT", "Main Right", "Right main landing gear", 2),
+            ("TAIL", "Tail Gear", "Tail landing gear (taildragger)", 3),
+            ("CUSTOM", "Custom", "Custom gear configuration", 4),
+        ],
+        default="NOSE"
+    )
+    
+    auto_detect_gear: bpy.props.BoolProperty(
+        name="Auto Detect Gear",
+        description="Automatically detect gear type and index from object hierarchy and naming",
+        default=True
+    )
+    
+    enable_retraction: bpy.props.BoolProperty(
+        name="Enable Retraction",
+        description="Enable gear retraction animation",
+        default=False
+    )
+    
+    retraction_dataref: bpy.props.StringProperty(
+        name="Retraction Dataref",
+        description="Dataref controlling gear retraction (0=extended, 1=retracted)",
+        default="sim/aircraft/parts/acf_gear_retract"
+    )
+    
+    enable_doors: bpy.props.BoolProperty(
+        name="Enable Gear Doors",
+        description="Enable gear door animation",
+        default=False
+    )
+    
+    door_dataref: bpy.props.StringProperty(
+        name="Door Dataref",
+        description="Dataref controlling gear door position (0=closed, 1=open)",
+        default="sim/aircraft/parts/acf_gear_door"
+    )
+    
+    validation_enabled: bpy.props.BoolProperty(
+        name="Enable Validation",
+        description="Enable landing gear validation and error checking",
+        default=True
+    )
+    
+    show_advanced: bpy.props.BoolProperty(
+        name="Show Advanced Settings",
+        description="Show advanced landing gear configuration options",
+        default=False
     )
     
 class XPlaneEmpty(bpy.types.PropertyGroup):
@@ -619,7 +514,7 @@ class XPlaneCondition(bpy.types.PropertyGroup):
         items = [
             (CONDITION_GLOBAL_LIGHTING, 'HDR', 'HDR mode On/Off'),
             (CONDITION_GLOBAL_SHADOWS, 'Global Shadows', 'Global shadows On/Off'),
-            (CONDITION_VERSION10, 'Version 10.x', 'Always "On", as V9 does not support conditions')
+            (CONDITION_VERSION10, 'Modern X-Plane', 'Modern X-Plane version condition (always enabled)')
         ]
     )
 
@@ -697,29 +592,27 @@ class XPlaneManipulatorSettings(bpy.types.PropertyGroup):
             (MANIP_WRAP,         "Wrap",         "Wrap"),
             (MANIP_TOGGLE,       "Toggle",       "Toggle"),
             (MANIP_NOOP,         "No-op",        "No-op"),
-            (MANIP_DRAG_AXIS_PIX,             "Drag Axis Pix (v10.10)",             "Drag Axis Pix (requires at least v10.10)"),
-            (MANIP_COMMAND_KNOB,              "Command Knob (v10.50)",              "Command Knob (requires at least v10.50)"),
-            (MANIP_COMMAND_SWITCH_UP_DOWN,    "Command Switch Up Down (v10.50)",    "Command Switch Up Down (requires at least v10.50)"),
-            (MANIP_COMMAND_SWITCH_LEFT_RIGHT, "Command Switch Left Right (v10.50)", "Command Switch Left Right (requires at least v10.50)"),
-            (MANIP_AXIS_SWITCH_UP_DOWN,       "Axis Switch Up Down (v10.50)",       "Axis Switch Up Down (requires at least v10.50)"),
-            (MANIP_AXIS_SWITCH_LEFT_RIGHT,    "Axis Switch Left Right (v10.50)",    "Axis Switch Left Right (requires at least v10.50)"),
-            (MANIP_AXIS_KNOB, "Axis Knob (v10.50)", "Axis Knob (requires at least v10.50)")
+            (MANIP_DRAG_AXIS_PIX,             "Drag Axis Pix",             "Pixel-based drag axis manipulator for precise control"),
+            (MANIP_COMMAND_KNOB,              "Command Knob",              "Rotary knob manipulator that sends commands"),
+            (MANIP_COMMAND_SWITCH_UP_DOWN,    "Command Switch Up Down",    "Vertical switch manipulator that sends commands"),
+            (MANIP_COMMAND_SWITCH_LEFT_RIGHT, "Command Switch Left Right", "Horizontal switch manipulator that sends commands"),
+            (MANIP_AXIS_SWITCH_UP_DOWN,       "Axis Switch Up Down",       "Vertical switch manipulator for dataref control"),
+            (MANIP_AXIS_SWITCH_LEFT_RIGHT,    "Axis Switch Left Right",    "Horizontal switch manipulator for dataref control"),
+            (MANIP_AXIS_KNOB, "Axis Knob", "Rotary knob manipulator for dataref control")
         ]
 
-        type_v1110_items = [
-            (MANIP_DRAG_AXIS_DETENT,           "Drag Axis With Detents",      "Drag Axis With Detents (requires at least v11.10)"),
-            (MANIP_COMMAND_KNOB2,              "Command Knob 2",              "Command Knob 2 (requires at least v11.10)"),
-            (MANIP_COMMAND_SWITCH_UP_DOWN2,    "Command Switch Up Down 2",    "Command Switch Up Down 2 (requires at least v11.10)"),
-            (MANIP_COMMAND_SWITCH_LEFT_RIGHT2, "Command Switch Left Right 2", "Command Switch Left Right 2 (requires at least v11.10)"),
-            (MANIP_DRAG_ROTATE,                "Drag Rotate",                 "Drag Rotate (requires at least v11.10)"),
-            (MANIP_DRAG_ROTATE_DETENT,         "Drag Rotate With Detents",    "Drag Rotate With Detents (requires at least v11.10)")
+        # X-Plane 12+ modern manipulator types (all available)
+        modern_manip_items = [
+            (MANIP_DRAG_AXIS_DETENT,           "Drag Axis With Detents",      "Modern X-Plane manipulator with detent zones for touch interfaces"),
+            (MANIP_COMMAND_KNOB2,              "Command Knob 2",              "Enhanced rotary knob manipulator optimized for touch interfaces"),
+            (MANIP_COMMAND_SWITCH_UP_DOWN2,    "Command Switch Up Down 2",    "Enhanced vertical switch manipulator for touch interfaces"),
+            (MANIP_COMMAND_SWITCH_LEFT_RIGHT2, "Command Switch Left Right 2", "Enhanced horizontal switch manipulator for touch interfaces"),
+            (MANIP_DRAG_ROTATE,                "Drag Rotate",                 "Modern X-Plane rotational manipulator for touch interfaces"),
+            (MANIP_DRAG_ROTATE_DETENT,         "Drag Rotate With Detents",    "Modern X-Plane rotational manipulator with detent zones for touch interfaces")
         ]
 
-        xplane_version = int(bpy.context.scene.xplane.version)
-        if xplane_version >= int(VERSION_1110):
-            return type_items + type_v1110_items
-        else:
-            return type_items
+        # All manipulator types are available in X-Plane 12+
+        return type_items + modern_manip_items
 
     type: bpy.props.EnumProperty(
         name = "Manipulator Type",
@@ -1059,10 +952,65 @@ class XPlaneRainSettings(bpy.types.PropertyGroup):
         min=0.1,
         max=1.0,
     )
+    
+    # RAIN_friction dataref support for X-Plane 12+
+    rain_friction_enabled: bpy.props.BoolProperty(
+        name="Enable Rain Friction",
+        description="Enable rain friction effects on surfaces",
+        default=False
+    )
+    
+    rain_friction_dataref: bpy.props.StringProperty(
+        name="Rain Friction Dataref",
+        description="Dataref that controls rain friction coefficient (0.0 = dry, 1.0 = maximum rain effect)",
+        default=""
+    )
+    
+    rain_friction_dry_coefficient: bpy.props.FloatProperty(
+        name="Dry Friction Coefficient",
+        description="Friction coefficient when surface is dry",
+        default=1.0,
+        min=0.0,
+        max=2.0,
+        precision=3
+    )
+    
+    rain_friction_wet_coefficient: bpy.props.FloatProperty(
+        name="Wet Friction Coefficient",
+        description="Friction coefficient when surface is fully wet",
+        default=0.3,
+        min=0.0,
+        max=2.0,
+        precision=3
+    )
     thermal_texture: bpy.props.StringProperty(
         name = "Thermal Texture",
         description = "File path to the thermal texture",
         subtype="FILE_PATH",
+    )
+    
+    # Advanced thermal source management
+    thermal_auto_validation: bpy.props.BoolProperty(
+        name="Auto-validate Thermal Sources",
+        description="Automatically validate thermal source configurations during export",
+        default=True
+    )
+    
+    thermal_defrost_optimization: bpy.props.BoolProperty(
+        name="Optimize Defrost Times",
+        description="Optimize defrost time calculations for better performance",
+        default=False
+    )
+    
+    thermal_source_priority: bpy.props.EnumProperty(
+        name="Thermal Source Priority",
+        description="Priority system for thermal source activation",
+        items=[
+            ("sequential", "Sequential", "Activate thermal sources in order 1-4"),
+            ("priority", "Priority Based", "Activate based on importance"),
+            ("simultaneous", "Simultaneous", "All sources can be active simultaneously"),
+        ],
+        default="sequential"
     )
     thermal_source_1: bpy.props.PointerProperty(
         type=XPlaneThermalSourceSettings,
@@ -1105,6 +1053,43 @@ class XPlaneRainSettings(bpy.types.PropertyGroup):
         description="File path to the wiper gradient texture (click 'Make Wiper Gradient Texture' to make)",
         subtype="FILE_PATH",
     )
+    
+    # Wiper texture baking optimization settings
+    wiper_bake_resolution: bpy.props.EnumProperty(
+        name="Wiper Texture Resolution",
+        description="Resolution for baked wiper gradient texture",
+        items=[
+            ("512", "512x512", "Low resolution for testing"),
+            ("1024", "1024x1024", "Standard resolution"),
+            ("2048", "2048x2048", "High resolution"),
+            ("4096", "4096x4096", "Ultra high resolution"),
+        ],
+        default="1024"
+    )
+    
+    wiper_bake_quality: bpy.props.EnumProperty(
+        name="Wiper Bake Quality",
+        description="Quality settings for wiper texture baking",
+        items=[
+            ("draft", "Draft", "Fast baking with lower quality"),
+            ("standard", "Standard", "Balanced quality and speed"),
+            ("high", "High", "High quality baking (slower)"),
+            ("ultra", "Ultra", "Maximum quality (very slow)"),
+        ],
+        default="standard"
+    )
+    
+    wiper_bake_antialiasing: bpy.props.BoolProperty(
+        name="Enable Antialiasing",
+        description="Enable antialiasing for smoother wiper edges",
+        default=True
+    )
+    
+    wiper_auto_optimize: bpy.props.BoolProperty(
+        name="Auto-optimize Wiper Paths",
+        description="Automatically optimize wiper animation paths for better performance",
+        default=False
+    )
     wiper_1: bpy.props.PointerProperty(
         type=XPlaneWiperSettings,
         name="Wiper 1",
@@ -1128,6 +1113,228 @@ class XPlaneRainSettings(bpy.types.PropertyGroup):
         description="Wiper parameters",
     )
     wiper_4_enabled: bpy.props.BoolProperty(name="Enable Wiper",)
+    
+    # Comprehensive validation properties
+    validation_enabled: bpy.props.BoolProperty(
+        name="Enable Rain System Validation",
+        description="Enable comprehensive validation of rain system settings",
+        default=True
+    )
+    
+    validation_strict_mode: bpy.props.BoolProperty(
+        name="Strict Validation Mode",
+        description="Enable strict validation that treats warnings as errors",
+        default=False
+    )
+    
+    validation_check_datarefs: bpy.props.BoolProperty(
+        name="Validate Datarefs",
+        description="Check if specified datarefs are valid X-Plane datarefs",
+        default=True
+    )
+    
+    validation_check_textures: bpy.props.BoolProperty(
+        name="Validate Texture Paths",
+        description="Check if texture file paths exist and are valid",
+        default=True
+    )
+    
+    validation_check_objects: bpy.props.BoolProperty(
+        name="Validate Object References",
+        description="Check if referenced Blender objects exist",
+        default=True
+    )
+    
+    validation_performance_warnings: bpy.props.BoolProperty(
+        name="Performance Warnings",
+        description="Show warnings for settings that may impact performance",
+        default=True
+    )
+    
+    # Error reporting settings
+    error_reporting_level: bpy.props.EnumProperty(
+        name="Error Reporting Level",
+        description="Level of detail for error reporting",
+        items=[
+            ("minimal", "Minimal", "Only critical errors"),
+            ("standard", "Standard", "Errors and important warnings"),
+            ("verbose", "Verbose", "All errors, warnings, and info messages"),
+            ("debug", "Debug", "All messages including debug information"),
+        ],
+        default="standard"
+    )
+
+# Class: XPlaneTextureMap
+# Modern Texture System for X-Plane 12+ TEXTURE_MAP directives
+#
+# Properties:
+#   Various texture map properties for different usage types and channels
+class XPlaneTextureMap(bpy.types.PropertyGroup):
+    # Validation and integration settings
+    validation_enabled: bpy.props.BoolProperty(
+        name = "Enable Texture Map Validation",
+        description = "Enable comprehensive validation for texture maps",
+        default = True
+    )
+
+    blender_material_integration: bpy.props.BoolProperty(
+        name = "Blender 4+ Material Integration",
+        description = "Automatically detect and convert Blender 4+ material nodes to X-Plane texture maps",
+        default = True
+    )
+
+    # Normal texture maps
+    normal_texture: bpy.props.StringProperty(
+        subtype = "FILE_PATH",
+        name = "Normal Texture",
+        description = "Normal map texture file for TEXTURE_MAP normal directive",
+        default = ""
+    )
+
+    normal_channels: bpy.props.EnumProperty(
+        name = "Normal Channels",
+        description = "Channel mapping for normal texture",
+        default = "RG",
+        items = [
+            ("R", "R", "Red channel only"),
+            ("G", "G", "Green channel only"),
+            ("B", "B", "Blue channel only"),
+            ("A", "A", "Alpha channel only"),
+            ("RG", "RG", "Red and Green channels"),
+            ("RGB", "RGB", "Red, Green, and Blue channels"),
+            ("RGBA", "RGBA", "All channels")
+        ]
+    )
+
+    # Material/Gloss texture maps
+    material_gloss_texture: bpy.props.StringProperty(
+        subtype = "FILE_PATH",
+        name = "Material/Gloss Texture",
+        description = "Material and gloss texture file for TEXTURE_MAP material_gloss directive",
+        default = ""
+    )
+
+    material_gloss_channels: bpy.props.EnumProperty(
+        name = "Material/Gloss Channels",
+        description = "Channel mapping for material/gloss texture",
+        default = "RGBA",
+        items = [
+            ("R", "R", "Red channel only"),
+            ("G", "G", "Green channel only"),
+            ("B", "B", "Blue channel only"),
+            ("A", "A", "Alpha channel only"),
+            ("RG", "RG", "Red and Green channels"),
+            ("RGB", "RGB", "Red, Green, and Blue channels"),
+            ("RGBA", "RGBA", "All channels")
+        ]
+    )
+
+    # Gloss texture maps
+    gloss_texture: bpy.props.StringProperty(
+        subtype = "FILE_PATH",
+        name = "Gloss Texture",
+        description = "Gloss texture file for TEXTURE_MAP gloss directive",
+        default = ""
+    )
+
+    gloss_channels: bpy.props.EnumProperty(
+        name = "Gloss Channels",
+        description = "Channel mapping for gloss texture",
+        default = "R",
+        items = [
+            ("R", "R", "Red channel only"),
+            ("G", "G", "Green channel only"),
+            ("B", "B", "Blue channel only"),
+            ("A", "A", "Alpha channel only"),
+            ("RG", "RG", "Red and Green channels"),
+            ("RGB", "RGB", "Red, Green, and Blue channels"),
+            ("RGBA", "RGBA", "All channels")
+        ]
+    )
+
+    # Additional texture map types for future expansion
+    metallic_texture: bpy.props.StringProperty(
+        subtype = "FILE_PATH",
+        name = "Metallic Texture",
+        description = "Metallic texture file for TEXTURE_MAP metallic directive",
+        default = ""
+    )
+
+    metallic_channels: bpy.props.EnumProperty(
+        name = "Metallic Channels",
+        description = "Channel mapping for metallic texture",
+        default = "R",
+        items = [
+            ("R", "R", "Red channel only"),
+            ("G", "G", "Green channel only"),
+            ("B", "B", "Blue channel only"),
+            ("A", "A", "Alpha channel only"),
+            ("RG", "RG", "Red and Green channels"),
+            ("RGB", "RGB", "Red, Green, and Blue channels"),
+            ("RGBA", "RGBA", "All channels")
+        ]
+    )
+
+    roughness_texture: bpy.props.StringProperty(
+        subtype = "FILE_PATH",
+        name = "Roughness Texture",
+        description = "Roughness texture file for TEXTURE_MAP roughness directive",
+        default = ""
+    )
+
+    roughness_channels: bpy.props.EnumProperty(
+        name = "Roughness Channels",
+        description = "Channel mapping for roughness texture",
+        default = "R",
+        items = [
+            ("R", "R", "Red channel only"),
+            ("G", "G", "Green channel only"),
+            ("B", "B", "Blue channel only"),
+            ("A", "A", "Alpha channel only"),
+            ("RG", "RG", "Red and Green channels"),
+            ("RGB", "RGB", "Red, Green, and Blue channels"),
+            ("RGBA", "RGBA", "All channels")
+        ]
+    )
+
+    # Texture validation settings
+    validate_texture_existence: bpy.props.BoolProperty(
+        name = "Validate Texture Files Exist",
+        description = "Check that all specified texture files exist on disk",
+        default = True
+    )
+
+    validate_texture_formats: bpy.props.BoolProperty(
+        name = "Validate Texture Formats",
+        description = "Check that texture files are in supported formats (PNG, DDS, etc.)",
+        default = True
+    )
+
+    validate_texture_resolution: bpy.props.BoolProperty(
+        name = "Validate Texture Resolution",
+        description = "Check texture resolution and warn about non-power-of-two textures",
+        default = True
+    )
+
+    # Blender material node mapping settings
+    auto_detect_principled_bsdf: bpy.props.BoolProperty(
+        name = "Auto-detect Principled BSDF",
+        description = "Automatically map Principled BSDF node inputs to X-Plane texture maps",
+        default = True
+    )
+
+    auto_detect_normal_map_nodes: bpy.props.BoolProperty(
+        name = "Auto-detect Normal Map Nodes",
+        description = "Automatically detect Normal Map nodes and extract texture paths",
+        default = True
+    )
+
+    auto_detect_image_texture_nodes: bpy.props.BoolProperty(
+        name = "Auto-detect Image Texture Nodes",
+        description = "Automatically detect Image Texture nodes and map to appropriate channels",
+        default = True
+    )
+
 
 class XPlaneLayer(bpy.types.PropertyGroup):
     """
@@ -1267,13 +1474,13 @@ class XPlaneLayer(bpy.types.PropertyGroup):
 
     export_type: bpy.props.EnumProperty(
         name = "Type",
-        description = "What kind of thing are you going to export?",
+        description = "Export type optimized for X-Plane 12+ features and performance",
         default = "aircraft",
         items = [
-            (EXPORT_TYPE_AIRCRAFT, "Aircraft (Part)", "Aircraft (Part)"),
-            (EXPORT_TYPE_COCKPIT, "Cockpit", "Cockpit"),
-            (EXPORT_TYPE_SCENERY, "Scenery Object", "Scenery Object"),
-            (EXPORT_TYPE_INSTANCED_SCENERY, "Instanced Scenery Object", "Instanced Scenery Object")
+            (EXPORT_TYPE_AIRCRAFT, "Aircraft (Part)", "Aircraft export with X-Plane 12+ lighting systems, advanced materials, and modern performance optimization"),
+            (EXPORT_TYPE_COCKPIT, "Cockpit", "Cockpit export featuring X-Plane 12+ enhanced lighting, modern material workflows, and advanced interactive systems"),
+            (EXPORT_TYPE_SCENERY, "Scenery Object", "Scenery object with X-Plane 12+ modern rendering features, enhanced performance optimization, and advanced lighting systems"),
+            (EXPORT_TYPE_INSTANCED_SCENERY, "Instanced Scenery Object", "Instanced scenery object optimized for X-Plane 12+ performance with modern material systems and efficient rendering")
         ]
     )
 
@@ -1940,6 +2147,13 @@ class XPlaneLayer(bpy.types.PropertyGroup):
         default = False
     )
 
+    # Modern Texture System (X-Plane 12+)
+    texture_maps: bpy.props.PointerProperty(
+        name = "Modern Texture Maps",
+        description = "X-Plane 12+ TEXTURE_MAP system settings",
+        type = XPlaneTextureMap
+    )
+
 
 class XPlaneCollectionSettings(bpy.types.PropertyGroup):
     is_exportable_collection: bpy.props.BoolProperty(
@@ -2014,10 +2228,6 @@ class XPlaneSceneSettings(bpy.types.PropertyGroup):
         description = 'Run exporter without actually writing .objs to disk',
         default = False)
 
-    dev_fake_xplane2blender_version: bpy.props.StringProperty(
-        name       = "Fake XPlane2Blender Version",
-        description = "The Fake XPlane2Blender Version to re-run the upgrader with",
-        default = "")#str(bpy.context.scene.xplane.get("xplane2blender_ver")))
     #######################################
 
     optimize: bpy.props.BoolProperty(
@@ -2027,28 +2237,14 @@ class XPlaneSceneSettings(bpy.types.PropertyGroup):
     )
 
     version: bpy.props.EnumProperty(
-        name = "X-Plane Version",
+        name = "X-Plane 12+ Version",
+        description = "X-Plane 12+ version target for export optimization",
         default = VERSION_1210,
         items = [
-            (VERSION_900,  "9.x", "9.x"),
-            (VERSION_1000, "10.0x", "10.0x"),
-            (VERSION_1010, "10.1x", "10.1x"),
-            (VERSION_1040, "10.4x", "10.4x"),
-            (VERSION_1050, "10.5x", "10.5x"),
-            (VERSION_1100, "11.0x", "11.0x"),
-            (VERSION_1110, "11.1x", "11.1x"),
-            (VERSION_1130, "11.3x", "11.3x"),
-            (VERSION_1200, "12.0x", "12.0x"),
-            (VERSION_1210, "12.1.x", "12.1.x")
+            (VERSION_1200, "X-Plane 12.0", "X-Plane 12.0"),
+            (VERSION_1210, "X-Plane 12.1+", "X-Plane 12.1+")
         ]
     )
-
-    # This list of version histories the .blend file has encountered,
-    # from the earliest
-    xplane2blender_ver_history: bpy.props.CollectionProperty(
-        name="XPlane2Blender History",
-        description="Every version of XPlane2Blender this .blend file has been opened with",
-        type=XPlane2BlenderVersion)
 
 
 class XPlaneObjectSettings(bpy.types.PropertyGroup):
@@ -2460,18 +2656,6 @@ class XPlaneMaterialSettings(bpy.types.PropertyGroup):
         type = XPlaneCustomAttribute
     )
 
-    #TODO: When we have the updater again, remove this unneeded thing.
-    # This was only for automatically playing with Blender Render which is dead
-    litFactor: bpy.props.FloatProperty(
-        name = "Day-Night Preview Balance",
-        description = "Adjusts 3D View's preview of day vs night texture",
-        default = 0,
-        min = 0,
-        max = 1,
-        step = 0.1,
-        #update = updateMaterialLitPreview
-    )
-
     # v1000
     draped: bpy.props.BoolProperty(
         name = "Draped",
@@ -2606,7 +2790,6 @@ class XPlaneLightSettings(bpy.types.PropertyGroup):
 
 
 _classes = (
-    XPlane2BlenderVersion,
     XPlaneAxisDetentRange,
     XPlaneCondition,
     XPlaneCustomAttribute,
@@ -2623,6 +2806,7 @@ _classes = (
     XPlaneManipulatorSettings,
     XPlaneCockpitRegion,
     XPlaneLOD,
+    XPlaneTextureMap,
     # complex classes, depending on basic classes
     XPlaneThermalSourceSettings,
     XPlaneWiperSettings,

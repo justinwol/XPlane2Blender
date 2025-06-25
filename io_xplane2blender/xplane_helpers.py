@@ -222,10 +222,10 @@ class VerStruct:
     ):
         # fmt: off
         self.addon_version      = tuple(addon_version) if addon_version      is not None else (0,0,0)
-        self.build_type         = build_type           if build_type         is not None else xplane_constants.BUILD_TYPE_DEV
+        self.build_type         = build_type           if build_type         is not None else "release"
         self.build_type_version = build_type_version   if build_type_version is not None else 0
         self.data_model_version = data_model_version   if data_model_version is not None else 0
-        self.build_number       = build_number         if build_number       is not None else xplane_constants.BUILD_NUMBER_NONE
+        self.build_number       = build_number         if build_number       is not None else "none"
         # fmt: on
 
     def __eq__(self, other):
@@ -242,12 +242,12 @@ class VerStruct:
     def __lt__(self, other):
         return (
             self.addon_version,
-            xplane_constants.BUILD_TYPES.index(self.build_type),
+            self.build_type,
             self.build_type_version,
             self.data_model_version,
         ) < (
             other.addon_version,
-            xplane_constants.BUILD_TYPES.index(other.build_type),
+            other.build_type,
             other.build_type_version,
             other.data_model_version,
         )
@@ -255,12 +255,12 @@ class VerStruct:
     def __gt__(self, other):
         return (
             self.addon_version,
-            xplane_constants.BUILD_TYPES.index(self.build_type),
+            self.build_type,
             self.build_type_version,
             self.data_model_version,
         ) > (
             other.addon_version,
-            xplane_constants.BUILD_TYPES.index(other.build_type),
+            other.build_type,
             other.build_type_version,
             other.data_model_version,
         )
@@ -311,54 +311,25 @@ class VerStruct:
         if not types_correct:
             raise Exception("Incorrect types passed into VerStruct")
 
+        # Simplified validation for X-Plane 12+ only
         if (
             self.addon_version[0] >= 3
             and self.addon_version[1] >= 0
             and self.addon_version[2] >= 0
         ):
-            if xplane_constants.BUILD_TYPES.index(self.build_type) != -1:
-                if (
-                    self.build_type == xplane_constants.BUILD_TYPE_DEV
-                    or self.build_type == xplane_constants.BUILD_TYPE_LEGACY
-                ):
-                    if self.build_type_version > 0:
-                        print(
-                            "build_type_version must be 0 when build_type is %s"
-                            % self.build_type
-                        )
-                        return False
-                elif self.build_type_version <= 0:
-                    print(
-                        "build_type_version must be > 0 when build_type is %s"
-                        % self.build_type
-                    )
-                    return False
+            # Ensure data model version is valid for X-Plane 12+
+            if self.data_model_version <= 0:
+                print("data_model_version must be > 0 for X-Plane 12+")
+                return False
 
-                if (
-                    self.build_type == xplane_constants.BUILD_TYPE_LEGACY
-                    and self.data_model_version != 0
-                ):
-                    print(
-                        "Invalid build_type,data_model_version combo: legacy and data_model_version is not 0"
-                    )
-                    return False
-                elif (
-                    self.build_type != xplane_constants.BUILD_TYPE_LEGACY
-                    and self.data_model_version <= 0
-                ):
-                    print(
-                        "Invalid build_type,data_model_version combo: non-legacy and data_model_version is > 0"
-                    )
-                    return False
-
-                if self.build_number == xplane_constants.BUILD_NUMBER_NONE:
-                    return True
-                else:
-                    datetime_matches = re.match(
-                        r"(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})", self.build_number
-                    )
+            # Validate build number format if not "none"
+            if self.build_number != "none":
+                datetime_matches = re.match(
+                    r"(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})", self.build_number
+                )
+                if datetime_matches:
                     try:
-                        # a timezone aware datetime object preforms the validations on construction.
+                        # a timezone aware datetime object performs the validations on construction.
                         dt = datetime.datetime(
                             *[int(group) for group in datetime_matches.groups()],
                             tzinfo=timezone.utc,
@@ -369,11 +340,11 @@ class VerStruct:
                         )
                         print('"%s" is an invalid build number' % (self.build_number))
                         return False
-                    else:
-                        return True
-            else:
-                print("build_type %s was not found in BUILD_TYPES" % self.build_type)
-                return False
+                else:
+                    print('"%s" is an invalid build number format' % (self.build_number))
+                    return False
+            
+            return True
         else:
             print("addon_version %s is invalid" % str(self.addon_version))
             return False
@@ -488,7 +459,7 @@ class VerStruct:
                 version_struct.addon_version = tuple(
                     [int(v) for v in version_str.split(".")]
                 )
-                version_struct.build_type = xplane_constants.BUILD_TYPE_LEGACY
+                version_struct.build_type = "release"
 
         if version_struct.is_valid():
             return version_struct

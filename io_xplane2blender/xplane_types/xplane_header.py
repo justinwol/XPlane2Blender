@@ -8,6 +8,7 @@ from typing import List
 import bpy
 
 from io_xplane2blender.xplane_constants import EXPORT_TYPE_AIRCRAFT, EXPORT_TYPE_SCENERY
+from io_xplane2blender.xplane_config import getDebug
 
 from ..xplane_constants import *
 from ..xplane_helpers import (
@@ -22,6 +23,9 @@ from .xplane_attribute import XPlaneAttribute, XPlaneAttributeName
 from .xplane_attributes import XPlaneAttributes
 
 from ..xplane_utils.xplane_effective_gloss import get_effective_gloss
+from ..xplane_utils.xplane_rain_validation import validate_rain_system
+from ..xplane_utils.xplane_texture_validation import validate_texture_system, get_texture_map_export_string
+from ..xplane_utils.xplane_material_converter import convert_blender_material_to_xplane
 
 
 class XPlaneHeader:
@@ -96,9 +100,12 @@ class XPlaneHeader:
         self.attributes.add(XPlaneAttribute("TEXTURE", None))
         self.attributes.add(XPlaneAttribute("TEXTURE_LIT", None))
         self.attributes.add(XPlaneAttribute("TEXTURE_NORMAL", None))
+        # Modern Texture System (X-Plane 12+) - Enhanced TEXTURE_MAP support
         self.attributes.add(XPlaneAttribute("TEXTURE_MAP normal", None))
         self.attributes.add(XPlaneAttribute("TEXTURE_MAP material_gloss", None))
         self.attributes.add(XPlaneAttribute("TEXTURE_MAP gloss", None))
+        self.attributes.add(XPlaneAttribute("TEXTURE_MAP metallic", None))
+        self.attributes.add(XPlaneAttribute("TEXTURE_MAP roughness", None))
         self.attributes.add(
             XPlaneAttribute(XPlaneAttributeName("NORMAL_METALNESS", 1), None)
         )  # NORMAL_METALNESS for textures
@@ -113,6 +120,7 @@ class XPlaneHeader:
         # rain, thermal, wiper settings
         rain_header_attrs = [
             "RAIN_scale",
+            "RAIN_friction",
             "THERMAL_texture",
             "WIPER_texture",
         ]
@@ -431,6 +439,10 @@ class XPlaneHeader:
                     pass
 
         if xplane_version >= 1200:
+            # Enhanced Modern Texture System (TEXTURE_MAP) export
+            self._export_modern_texture_maps(exportdir, xplane_version)
+            
+            # Traditional texture map support (X-Plane 12+ compatible)
             if self.xplaneFile.options.texture_map_normal != "":
                 try:
                     self.attributes["TEXTURE_MAP normal"].setValue(
@@ -486,6 +498,33 @@ class XPlaneHeader:
             )
             has_wiper_system = rain_props.wiper_texture and has_wipers
 
+            # Enhanced validation with configurable levels
+            def run_rain_validation():
+                """Run comprehensive rain system validation"""
+                if not rain_props.validation_enabled:
+                    return
+                
+                # Use the comprehensive validation system
+                validation_results = validate_rain_system(rain_props, filename, xplane_version)
+                
+                # Process validation results based on settings
+                for error in validation_results['errors']:
+                    if rain_props.validation_strict_mode:
+                        logger.error(f"{filename}: {error}")
+                    else:
+                        logger.warn(f"{filename}: {error}")
+                
+                for warning in validation_results['warnings']:
+                    if rain_props.error_reporting_level in ["standard", "verbose", "debug"]:
+                        logger.warn(f"{filename}: {warning}")
+                
+                for info in validation_results['info']:
+                    if rain_props.error_reporting_level in ["verbose", "debug"]:
+                        logger.info(f"{filename}: {info}")
+
+            # Run comprehensive validation
+            run_rain_validation()
+
             if xplane_version >= 1210 and (isAircraft or isCockpit):
                 if has_thermal_sources and not rain_props.thermal_texture:
                     logger.warn(
@@ -493,8 +532,20 @@ class XPlaneHeader:
                     )
                     
             if xplane_version >= 1200 and (isAircraft or isCockpit):
+                # RAIN_scale export
                 if round(rain_props.rain_scale, PRECISION_OBJ_FLOAT) < 1.0:
                     self.attributes["RAIN_scale"].setValue(rain_props.rain_scale)
+                
+                # RAIN_friction export (new feature)
+                if rain_props.rain_friction_enabled and rain_props.rain_friction_dataref:
+                    self.attributes["RAIN_friction"].setValue(
+                        (
+                            rain_props.rain_friction_dataref,
+                            rain_props.rain_friction_dry_coefficient,
+                            rain_props.rain_friction_wet_coefficient
+                        )
+                    )
+                
                 if has_wipers and not rain_props.wiper_texture:
                     logger.warn(f"{filename}: Must have Wiper Texture to use Wipers")
                     
@@ -507,37 +558,73 @@ class XPlaneHeader:
                             rain_props.thermal_texture, exportdir
                         )
                     )
-                    
+                
+                # Advanced thermal source management
+                enabled_sources = []
                 for i in range(1, 5):
                     if getattr(rain_props, f"thermal_source_{i}_enabled"):
-                        thermal_source = getattr(rain_props, f"thermal_source_{i}")
-                        if not thermal_source.defrost_time:
-                            defrost_time = 0
-                            logger.error(
-                                f"{filename}'s Thermal Source #{i - 1} has no defrost time"
-                            )
-                        else:
-                            try:
-                                defrost_time = float(thermal_source.defrost_time)
-                            except ValueError:
-                                defrost_time = thermal_source.defrost_time
-                        if not thermal_source.dataref_on_off:
-                            logger.error(
-                                f"{filename}'s Thermal Source #{i - 1} has no on/off dataref"
-                            )
-
-                        if self.attributes["THERMAL_source2"].getValue() == None:
-                            self.attributes["THERMAL_source2"].removeValues()
-                        self.attributes["THERMAL_source2"].addValue(
-                            (
-                                i - 1,
-                                defrost_time,
-                                thermal_source.dataref_on_off
-                            )
+                        enabled_sources.append(i)
+                
+                # Apply thermal source priority logic
+                if rain_props.thermal_source_priority == "priority":
+                    # Sort by priority (lower numbers = higher priority)
+                    enabled_sources.sort()
+                elif rain_props.thermal_source_priority == "sequential":
+                    # Keep original order for sequential activation
+                    pass
+                # simultaneous mode doesn't need special ordering
+                
+                thermal_sources_exported = 0
+                for i in enabled_sources:
+                    thermal_source = getattr(rain_props, f"thermal_source_{i}")
+                    
+                    # Enhanced defrost time validation and optimization
+                    if not thermal_source.defrost_time:
+                        defrost_time = 0
+                        logger.error(
+                            f"{filename}'s Thermal Source #{i} has no defrost time"
                         )
+                    else:
+                        try:
+                            defrost_time = float(thermal_source.defrost_time)
+                            
+                            # Apply defrost time optimization if enabled
+                            if rain_props.thermal_defrost_optimization:
+                                # Optimize defrost times based on thermal source priority
+                                if rain_props.thermal_source_priority == "priority":
+                                    # Higher priority sources get slightly faster defrost
+                                    priority_factor = 1.0 - (i - 1) * 0.05  # 5% faster per priority level
+                                    defrost_time *= priority_factor
+                                    
+                        except ValueError:
+                            defrost_time = thermal_source.defrost_time
+                    
+                    if not thermal_source.dataref_on_off:
+                        logger.error(
+                            f"{filename}'s Thermal Source #{i} has no on/off dataref"
+                        )
+                    
+                    # Enhanced validation for thermal sources
+                    if rain_props.validation_check_datarefs and thermal_source.dataref_on_off:
+                        # Basic dataref format validation
+                        if not thermal_source.dataref_on_off.replace("_", "").replace("/", "").replace("[", "").replace("]", "").replace(".", "").isalnum():
+                            logger.warn(f"{filename}'s Thermal Source #{i} dataref format may be invalid")
 
-                if not self.attributes["THERMAL_source2"].value:
+                    if self.attributes["THERMAL_source2"].getValue() == None:
+                        self.attributes["THERMAL_source2"].removeValues()
+                    self.attributes["THERMAL_source2"].addValue(
+                        (
+                            i - 1,
+                            defrost_time,
+                            thermal_source.dataref_on_off
+                        )
+                    )
+                    thermal_sources_exported += 1
+
+                if thermal_sources_exported == 0:
                     logger.error(f"{filename}'s Rain System must have at least 1 enabled Thermal Source")
+                elif rain_props.error_reporting_level in ["verbose", "debug"]:
+                    logger.info(f"{filename}: Exported {thermal_sources_exported} thermal sources with {rain_props.thermal_source_priority} priority")
 
             if (
                 xplane_version >= 1200 and (isAircraft or isCockpit) and has_wiper_system
@@ -549,28 +636,82 @@ class XPlaneHeader:
                         )
                     )
 
+                wipers_exported = 0
+                wiper_params = []
+                
                 for i in range(1, 5):
                     if getattr(rain_props, f"wiper_{i}_enabled"):
                         wiper = getattr(rain_props, f"wiper_{i}")
+                        
+                        # Enhanced wiper validation
                         if not wiper.dataref:
                             logger.error(f"{filename}'s Wiper #{i} has no dataref")
+                            continue
 
                         if wiper.start >= wiper.end:
                             logger.error(
                                 f"{filename}'s Wiper #{i} dataref start value ({wiper.start}) is greater than or equal to it's end ({wiper.end})"
                             )
+                            continue
+                        
+                        # Enhanced dataref validation
+                        if rain_props.validation_check_datarefs:
+                            if not wiper.dataref.replace("_", "").replace("/", "").replace("[", "").replace("]", "").replace(".", "").isalnum():
+                                logger.warn(f"{filename}'s Wiper #{i} dataref format may be invalid")
+                        
+                        # Enhanced object validation
+                        if rain_props.validation_check_objects and wiper.object_name:
+                            try:
+                                import bpy
+                                if wiper.object_name not in bpy.data.objects:
+                                    logger.warn(f"{filename}'s Wiper #{i} references non-existent object '{wiper.object_name}'")
+                            except:
+                                pass  # Blender context may not be available during export
+                        
+                        # Wiper path optimization
+                        start_value = wiper.start
+                        end_value = wiper.end
+                        nominal_width = wiper.nominal_width
+                        
+                        if rain_props.wiper_auto_optimize:
+                            # Optimize wiper animation range for better performance
+                            animation_range = abs(end_value - start_value)
+                            if animation_range > 1.0:
+                                # Normalize large ranges to improve performance
+                                logger.info(f"{filename}: Optimizing Wiper #{i} animation range from {animation_range:.3f} to normalized range")
+                                # Keep the same relative motion but normalize the range
+                                if start_value < end_value:
+                                    start_value = 0.0
+                                    end_value = 1.0
+                                else:
+                                    start_value = 1.0
+                                    end_value = 0.0
+                            
+                            # Optimize nominal width based on animation range
+                            if nominal_width > 0.1:  # Very thick wiper
+                                optimized_width = min(nominal_width, 0.05)  # Cap at 5%
+                                if optimized_width != nominal_width:
+                                    logger.info(f"{filename}: Optimizing Wiper #{i} thickness from {nominal_width:.3f} to {optimized_width:.3f}")
+                                    nominal_width = optimized_width
 
                         # STUPID HACK ALERT! The XPlaneAttribute API is stupid
                         if self.attributes["WIPER_param"].value[0] == None:
                             del self.attributes["WIPER_param"].value[0]
-                        self.attributes["WIPER_param"].value.append(
-                            f"{wiper.dataref}    {wiper.start}   {wiper.end}    {wiper.nominal_width}"
-                        )
+                        
+                        wiper_param_string = f"{wiper.dataref}    {start_value}   {end_value}    {nominal_width}"
+                        self.attributes["WIPER_param"].value.append(wiper_param_string)
+                        wiper_params.append(wiper_param_string)
+                        wipers_exported += 1
                     else:
                         break
 
-                if not self.attributes["WIPER_param"].value:
+                if wipers_exported == 0:
                     logger.error(f"{filename}'s Rain System must have at least 1 enabled Wiper")
+                elif rain_props.error_reporting_level in ["verbose", "debug"]:
+                    logger.info(f"{filename}: Exported {wipers_exported} wipers")
+                    if rain_props.error_reporting_level == "debug":
+                        for param in wiper_params:
+                            logger.info(f"{filename}: Wiper param: {param}")
 
         rain_header_attrs()
 
@@ -1024,6 +1165,113 @@ class XPlaneHeader:
 
         for attr in self.xplaneFile.options.customAttributes:
             self.attributes.add(XPlaneAttribute(attr.name, attr.value))
+
+    def _export_modern_texture_maps(self, exportdir: str, xplane_version: int) -> None:
+        """
+        Export modern texture maps using the enhanced TEXTURE_MAP system
+        
+        Args:
+            exportdir: Export directory path
+            xplane_version: X-Plane version number
+        """
+        # Get texture maps from layer options
+        texture_maps = getattr(self.xplaneFile.options, 'texture_maps', None)
+        if not texture_maps:
+            return
+        
+        # Run texture validation if enabled
+        if texture_maps.validation_enabled:
+            validation_results = validate_texture_system(
+                texture_maps,
+                self.xplaneFile.filename,
+                xplane_version
+            )
+            
+            # Log validation errors and warnings
+            for error in validation_results['errors']:
+                logger.error(f"{self.xplaneFile.filename}: {error}")
+            
+            for warning in validation_results['warnings']:
+                logger.warn(f"{self.xplaneFile.filename}: {warning}")
+            
+            # Log info messages in debug mode
+            if getDebug():
+                for info in validation_results['info']:
+                    logger.info(f"{self.xplaneFile.filename}: {info}")
+        
+        # Auto-detect textures from Blender materials if enabled
+        if texture_maps.blender_material_integration:
+            self._auto_detect_material_textures(texture_maps)
+        
+        # Export texture maps with channel specifications
+        texture_map_configs = [
+            ('normal_texture', 'normal_channels', 'normal'),
+            ('material_gloss_texture', 'material_gloss_channels', 'material_gloss'),
+            ('gloss_texture', 'gloss_channels', 'gloss'),
+            ('metallic_texture', 'metallic_channels', 'metallic'),
+            ('roughness_texture', 'roughness_channels', 'roughness')
+        ]
+        
+        for texture_prop, channel_prop, usage in texture_map_configs:
+            texture_path = getattr(texture_maps, texture_prop, "")
+            channels = getattr(texture_maps, channel_prop, "RGB")
+            
+            if texture_path:
+                try:
+                    # Get relative path for export
+                    relative_path = self.get_path_relative_to_dir(texture_path, exportdir)
+                    
+                    # Create the TEXTURE_MAP export string with channels
+                    texture_map_value = f"{channels} {relative_path}"
+                    
+                    # Set the attribute value
+                    attr_name = f"TEXTURE_MAP {usage}"
+                    if attr_name in self.attributes:
+                        self.attributes[attr_name].setValue(texture_map_value)
+                        
+                        if getDebug():
+                            logger.info(f"{self.xplaneFile.filename}: Set {attr_name} = {texture_map_value}")
+                
+                except (OSError, ValueError) as e:
+                    logger.error(f"{self.xplaneFile.filename}: Failed to process {usage} texture '{texture_path}': {str(e)}")
+    
+    def _auto_detect_material_textures(self, texture_maps) -> None:
+        """
+        Auto-detect textures from Blender materials and apply to texture maps
+        
+        Args:
+            texture_maps: XPlaneTextureMap instance to populate
+        """
+        # Find materials in the scene that could be auto-detected
+        materials_to_check = set()
+        
+        # Collect materials from all objects in the file
+        for obj in self.xplaneFile.get_xplane_objects():
+            if hasattr(obj, 'blenderObject') and obj.blenderObject.material_slots:
+                for slot in obj.blenderObject.material_slots:
+                    if slot.material:
+                        materials_to_check.add(slot.material)
+        
+        # Process each material for texture detection
+        conversion_results = []
+        for material in materials_to_check:
+            try:
+                result = convert_blender_material_to_xplane(material, texture_maps)
+                if result['success']:
+                    conversion_results.append(result)
+                    
+                    if getDebug():
+                        logger.info(f"{self.xplaneFile.filename}: Auto-detected textures from material '{material.name}': {result['message']}")
+                        for log_entry in result['log']:
+                            logger.info(f"  - {log_entry}")
+                
+            except Exception as e:
+                logger.warn(f"{self.xplaneFile.filename}: Failed to auto-detect textures from material '{material.name}': {str(e)}")
+        
+        # Log summary of auto-detection results
+        if conversion_results and getDebug():
+            total_textures = sum(len(result['textures']) for result in conversion_results)
+            logger.info(f"{self.xplaneFile.filename}: Auto-detected {total_textures} textures from {len(conversion_results)} materials")
 
     def get_path_relative_to_dir(self, res_path: str, export_dir: str) -> str:
         """

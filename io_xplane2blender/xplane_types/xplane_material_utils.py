@@ -157,10 +157,7 @@ def validate(mat: XPlaneMaterial, exportType: str) -> MaterialValidationMsgs:
     elif exportType == EXPORT_TYPE_COCKPIT and cockpit_feature == COCKPIT_FEATURE_NONE:
         return validateCockpit(mat)
     elif exportType == EXPORT_TYPE_AIRCRAFT:
-        if (
-            bpy.context.scene.xplane.version >= VERSION_1040
-            and cockpit_feature == COCKPIT_FEATURE_PANEL
-        ):
+        if cockpit_feature == COCKPIT_FEATURE_PANEL:
             return validatePanel(mat)
         else:
             return validateAircraft(mat)

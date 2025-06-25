@@ -327,10 +327,7 @@ class XPlaneMaterial:
             o += commands.writeAttribute(self.attributes[attr], self.xplaneObject)
 
         # if the file is a cockpit file write all cockpit attributes
-        if xplaneFile.options.export_type == EXPORT_TYPE_COCKPIT or (
-            bpy.context.scene.xplane.version >= VERSION_1040
-            and xplaneFile.options.export_type == EXPORT_TYPE_AIRCRAFT
-        ):
+        if xplaneFile.options.export_type == EXPORT_TYPE_COCKPIT or xplaneFile.options.export_type == EXPORT_TYPE_AIRCRAFT:
             for attr in self.cockpitAttributes:
                 o += commands.writeAttribute(
                     self.cockpitAttributes[attr], self.xplaneObject

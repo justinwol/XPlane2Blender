@@ -1,0 +1,20 @@
+I
+1200
+OBJ
+
+POINT_COUNTS	4 0 0 4
+
+TEXTURE		../fixtures/tex/test.png
+TEXTURE_MAP material_gloss RGBA textures/material_gloss.dds
+
+VT	0.000000 0.000000
+VT	1.000000 0.000000
+VT	1.000000 1.000000
+VT	0.000000 1.000000
+
+TRIS	0 4
+
+IDX10	0 1 2
+IDX10	0 2 3
+
+# test_material_gloss_texture

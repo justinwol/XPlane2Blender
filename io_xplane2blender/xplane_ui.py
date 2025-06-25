@@ -276,59 +276,167 @@ def empty_layout(layout: bpy.types.UILayout, empty_obj: bpy.types.Object):
         sub_row.prop(emp.magnet_props, "magnet_type_is_flashlight")
     elif emp.special_type == EMPTY_USAGE_WHEEL:
         box = layout.box()
-        box.label(text="Wheel Settings")
-        box.prop(emp.wheel_props, "gear_index")
-        box.prop(emp.wheel_props, "wheel_index")
+        box.label(text="Landing Gear Settings")
+        
+        # Basic gear configuration
+        row = box.row()
+        row.prop(emp.wheel_props, "auto_detect_gear")
+        row.prop(emp.wheel_props, "validation_enabled")
+        
+        # Gear type and indices
+        col = box.column()
+        col.prop(emp.wheel_props, "gear_type")
+        
+        row = col.row()
+        row.prop(emp.wheel_props, "gear_index")
+        row.prop(emp.wheel_props, "wheel_index")
+        
+        # Animation settings
+        if emp.wheel_props.show_advanced:
+            anim_box = box.box()
+            anim_box.label(text="Animation Settings")
+            
+            # Retraction settings
+            retract_row = anim_box.row()
+            retract_row.prop(emp.wheel_props, "enable_retraction")
+            if emp.wheel_props.enable_retraction:
+                anim_box.prop(emp.wheel_props, "retraction_dataref")
+            
+            # Door settings
+            door_row = anim_box.row()
+            door_row.prop(emp.wheel_props, "enable_doors")
+            if emp.wheel_props.enable_doors:
+                anim_box.prop(emp.wheel_props, "door_dataref")
+        
+        # Advanced settings toggle
+        box.prop(emp.wheel_props, "show_advanced")
 
 
 def rain_layout(
     layout: bpy.types.UILayout, layer_props: bpy.types.Collection, version: int
 ):
     rain_props = layer_props.rain
-    layout.prop(rain_props, "rain_scale")
     
-    if version >= 1210:
-        layout.prop(rain_props, "thermal_texture")
-        thermal_grid_flow = layout.grid_flow(row_major=True)
-
-        def thermal_layout(row, idx: int):
-            row.active = getattr(rain_props, f"thermal_source_{idx}_enabled")
-            row.prop(rain_props, f"thermal_source_{idx}_enabled", text="")
-            thermal_source = getattr(rain_props, f"thermal_source_{idx}")
-            row.prop(thermal_source, "defrost_time")
-            row.prop(thermal_source, "dataref_on_off")
-
-        thermal_grid_flow.active = bool(rain_props.thermal_texture)
-        for i in range(1, 5):
-            thermal_layout(thermal_grid_flow.row(), i)
+    # Basic rain settings
+    rain_box = layout.box()
+    rain_box.label(text="Basic Rain Settings", icon="WEATHER")
+    rain_box.prop(rain_props, "rain_scale")
+    
+    # Rain friction settings (X-Plane 12+)
+    if version >= 1200:
+        friction_box = layout.box()
+        friction_box.label(text="Rain Friction (X-Plane 12+)", icon="PHYSICS")
+        friction_box.prop(rain_props, "rain_friction_enabled")
         
-    layout.prop(rain_props, "wiper_texture")
-    layout.prop(rain_props, "wiper_ext_glass_object")
-    wiper_grid_flow = layout.grid_flow(row_major=False)
+        if rain_props.rain_friction_enabled:
+            friction_col = friction_box.column()
+            friction_col.prop(rain_props, "rain_friction_dataref")
+            
+            friction_row = friction_col.row()
+            friction_row.prop(rain_props, "rain_friction_dry_coefficient")
+            friction_row.prop(rain_props, "rain_friction_wet_coefficient")
+    
+    # Thermal system settings (X-Plane 12.1+)
+    if version >= 1210:
+        thermal_box = layout.box()
+        thermal_box.label(text="Thermal System (X-Plane 12.1+)", icon="OUTLINER_OB_LIGHT")
+        thermal_box.prop(rain_props, "thermal_texture")
+        
+        if rain_props.thermal_texture:
+            # Advanced thermal settings
+            thermal_advanced = thermal_box.column()
+            thermal_advanced.label(text="Advanced Thermal Settings:")
+            
+            thermal_row = thermal_advanced.row()
+            thermal_row.prop(rain_props, "thermal_auto_validation")
+            thermal_row.prop(rain_props, "thermal_defrost_optimization")
+            
+            thermal_advanced.prop(rain_props, "thermal_source_priority")
+            
+            # Thermal sources grid
+            thermal_grid_flow = thermal_box.grid_flow(row_major=True)
+            thermal_grid_flow.label(text="Thermal Sources:")
 
-    wiper_grid_flow.active = bool(rain_props.wiper_texture)
+            def thermal_layout(row, idx: int):
+                row.active = getattr(rain_props, f"thermal_source_{idx}_enabled")
+                row.prop(rain_props, f"thermal_source_{idx}_enabled", text="")
+                thermal_source = getattr(rain_props, f"thermal_source_{idx}")
+                row.prop(thermal_source, "defrost_time")
+                row.prop(thermal_source, "dataref_on_off")
 
-    def wiper_layout(idx: int):
-        row = wiper_grid_flow.row()
-        row.active = getattr(rain_props, f"wiper_{idx}_enabled")
-        row.prop(rain_props, f"wiper_{idx}_enabled", text="")
-        wiper = getattr(rain_props, f"wiper_{idx}")
-        # fmt: off
-        row.prop(wiper, "object_name", text="Object Name")
-        row.prop(wiper, "dataref",     text="Dataref")
-        row.prop(wiper, "start",       text="Start")
-        row.prop(wiper, "end",         text="End")
-        row.prop(wiper, "nominal_width")
-        # fmt: on
+            thermal_grid_flow.active = bool(rain_props.thermal_texture)
+            for i in range(1, 5):
+                thermal_layout(thermal_grid_flow.row(), i)
+    
+    # Wiper system settings (X-Plane 12+)
+    if version >= 1200:
+        wiper_box = layout.box()
+        wiper_box.label(text="Wiper System (X-Plane 12+)", icon="BRUSH_DATA")
+        wiper_box.prop(rain_props, "wiper_texture")
+        wiper_box.prop(rain_props, "wiper_ext_glass_object")
+        
+        if rain_props.wiper_texture:
+            # Wiper baking settings
+            wiper_bake = wiper_box.column()
+            wiper_bake.label(text="Wiper Texture Baking Settings:")
+            
+            wiper_bake_row = wiper_bake.row()
+            wiper_bake_row.prop(rain_props, "wiper_bake_resolution")
+            wiper_bake_row.prop(rain_props, "wiper_bake_quality")
+            
+            wiper_bake_row2 = wiper_bake.row()
+            wiper_bake_row2.prop(rain_props, "wiper_bake_antialiasing")
+            wiper_bake_row2.prop(rain_props, "wiper_auto_optimize")
+            
+            # Wiper parameters grid
+            wiper_grid_flow = wiper_box.grid_flow(row_major=False)
+            wiper_grid_flow.label(text="Wiper Parameters:")
 
-    for prev_idx, next_idx in zip(range(1, 4), range(2, 5)):
-        if prev_idx == 1:
-            wiper_layout(prev_idx)
-        prev_wiper_enabled = getattr(rain_props, f"wiper_{prev_idx}_enabled")
-        if prev_wiper_enabled:
-            wiper_layout(next_idx)
-        else:
-            break
+            def wiper_layout(idx: int):
+                row = wiper_grid_flow.row()
+                row.active = getattr(rain_props, f"wiper_{idx}_enabled")
+                row.prop(rain_props, f"wiper_{idx}_enabled", text="")
+                wiper = getattr(rain_props, f"wiper_{idx}")
+                # fmt: off
+                row.prop(wiper, "object_name", text="Object Name")
+                row.prop(wiper, "dataref",     text="Dataref")
+                row.prop(wiper, "start",       text="Start")
+                row.prop(wiper, "end",         text="End")
+                row.prop(wiper, "nominal_width")
+                # fmt: on
+
+            wiper_grid_flow.active = bool(rain_props.wiper_texture)
+            for prev_idx, next_idx in zip(range(1, 4), range(2, 5)):
+                if prev_idx == 1:
+                    wiper_layout(prev_idx)
+                prev_wiper_enabled = getattr(rain_props, f"wiper_{prev_idx}_enabled")
+                if prev_wiper_enabled:
+                    wiper_layout(next_idx)
+                else:
+                    break
+    
+    # Validation settings
+    validation_box = layout.box()
+    validation_box.label(text="Rain System Validation", icon="CHECKMARK")
+    validation_box.prop(rain_props, "validation_enabled")
+    
+    if rain_props.validation_enabled:
+        validation_col = validation_box.column()
+        
+        validation_row = validation_col.row()
+        validation_row.prop(rain_props, "validation_strict_mode")
+        validation_row.prop(rain_props, "error_reporting_level")
+        
+        validation_checks = validation_col.column()
+        validation_checks.label(text="Validation Checks:")
+        
+        validation_check_row1 = validation_checks.row()
+        validation_check_row1.prop(rain_props, "validation_check_datarefs")
+        validation_check_row1.prop(rain_props, "validation_check_textures")
+        
+        validation_check_row2 = validation_checks.row()
+        validation_check_row2.prop(rain_props, "validation_check_objects")
+        validation_check_row2.prop(rain_props, "validation_performance_warnings")
 
 
 def scene_layout(layout: bpy.types.UILayout, scene: bpy.types.Scene):
@@ -337,42 +445,27 @@ def scene_layout(layout: bpy.types.UILayout, scene: bpy.types.Scene):
     layout.row().prop(scene.xplane, "version")
 
     xp2b_ver = xplane_helpers.VerStruct.current()
-    if (
-        xp2b_ver.build_type == xplane_constants.BUILD_TYPE_RC
-        and xp2b_ver.build_number != xplane_constants.BUILD_NUMBER_NONE
-    ):
-        layout.row().label(
-            text="XPlane2Blender Version: " + str(xp2b_ver), icon="FILE_TICK"
-        )
-    else:
-        layout.row().label(text="XPlane2Blender Version: " + str(xp2b_ver), icon="NONE")
+    layout.row().label(text="XPlane2Blender Version: " + str(xp2b_ver), icon="FILE_TICK")
 
+    # Simplified warning for non-release builds
     needs_warning = False
-    if (
-        xp2b_ver.build_type == xplane_constants.BUILD_TYPE_ALPHA
-        or xp2b_ver.build_type == xplane_constants.BUILD_TYPE_BETA
-    ):
+    if xp2b_ver.build_type in ["alpha", "beta", "dev"]:
         layout.row().label(
             text="BEWARE: "
             + xp2b_ver.build_type.capitalize()
-            + " versions can damage files!",
+            + " versions may be unstable!",
             icon="ERROR",
         )
         needs_warning = True
-    elif xp2b_ver.build_type == xplane_constants.BUILD_TYPE_DEV:
-        layout.row().label(
-            text="Developer versions are DANGEROUS and UNSTABLE!", icon="ORPHAN_DATA"
-        )
-        needs_warning = True
 
-    if xp2b_ver.build_number == xplane_constants.BUILD_NUMBER_NONE:
+    if xp2b_ver.build_number == "none":
         layout.row().label(
-            text="No build number: addon may be EXTRA UNSTABLE.", icon="CANCEL"
+            text="No build number: addon may be unstable.", icon="CANCEL"
         )
         needs_warning = True
 
     if needs_warning is True:
-        layout.row().label(text="     Make backups or switch to a more stable release!")
+        layout.row().label(text="     Make backups or switch to a stable release!")
 
     exp_box = layout.box()
     exp_box.label(text="Root Collections")
@@ -435,34 +528,7 @@ def scene_dev_layout(layout: bpy.types.UILayout, scene: bpy.types.Scene):
         op.initial_dir = "fixtures"
         dev_box_column.operator("scene.dev_apply_default_material_to_all")
         dev_box_column.operator("scene.dev_root_names_from_objects")
-        updater_row = dev_box_column.row()
-        updater_row.prop(scene.xplane, "dev_fake_xplane2blender_version")
-        updater_row.operator("scene.dev_rerun_updater")
-        updater_row = dev_box_column.row()
-        updater_row.operator("scene.dev_create_lights_txt_summary")
-
-        history_box = dev_box_column.box()
-        history_box.label(text="XPlane2Blender Version History")
-        history_list = list(scene.xplane.xplane2blender_ver_history)
-        history_list.reverse()
-        for entry in history_list:
-            icon_str = "NONE"
-            if entry.build_type == xplane_constants.BUILD_TYPE_LEGACY:
-                icon_str = "GHOST_ENABLED"
-            if entry.build_type == xplane_constants.BUILD_TYPE_DEV:
-                icon_str = "ORPHAN_DATA"
-            elif (
-                entry.build_type == xplane_constants.BUILD_TYPE_ALPHA
-                or entry.build_type == xplane_constants.BUILD_TYPE_BETA
-            ):
-                icon_str = "ERROR"
-            elif (
-                entry.build_type == xplane_constants.BUILD_TYPE_RC
-                and entry.build_number != BUILD_NUMBER_NONE
-            ):
-                icon_str = "FILE_TICK"
-
-            history_box.label(text=str(entry), icon=icon_str)
+        dev_box_column.operator("scene.dev_create_lights_txt_summary")
 
 
 def collection_layer_layout(
@@ -554,9 +620,64 @@ def layer_layout(
         tex_box.prop(layer_props, "texture_lit", text="Night")
         tex_box.prop(layer_props, "texture_normal", text="Normal / Specular")
         if version >= 1200:
+            # Traditional texture map properties (X-Plane 12+ compatible)
             tex_box.prop(layer_props, "texture_map_normal", text='Normal')
             tex_box.prop(layer_props, "texture_map_material_gloss", text='Material / Gloss')
             tex_box.prop(layer_props, "texture_map_gloss", text='Gloss')
+            
+            # Modern Texture System (X-Plane 12+)
+            modern_tex_box = layout.box()
+            modern_tex_box.label(text="Modern Texture System (X-Plane 12+)")
+            
+            # Texture validation and integration settings
+            settings_row = modern_tex_box.row()
+            settings_row.prop(layer_props.texture_maps, "validation_enabled", text="Enable Validation")
+            settings_row.prop(layer_props.texture_maps, "blender_material_integration", text="Blender 4+ Integration")
+            
+            # Normal texture mapping
+            normal_col = modern_tex_box.column()
+            normal_col.label(text="Normal Mapping:")
+            normal_row = normal_col.row()
+            normal_row.prop(layer_props.texture_maps, "normal_texture", text="Normal Texture")
+            normal_row.prop(layer_props.texture_maps, "normal_channels", text="Channels")
+            
+            # Material/Gloss and Gloss texture mapping
+            gloss_col = modern_tex_box.column()
+            gloss_col.label(text="Gloss Mapping:")
+            material_gloss_row = gloss_col.row()
+            material_gloss_row.prop(layer_props.texture_maps, "material_gloss_texture", text="Material/Gloss")
+            material_gloss_row.prop(layer_props.texture_maps, "material_gloss_channels", text="Channels")
+            
+            gloss_row = gloss_col.row()
+            gloss_row.prop(layer_props.texture_maps, "gloss_texture", text="Gloss Only")
+            gloss_row.prop(layer_props.texture_maps, "gloss_channels", text="Channels")
+            
+            # Advanced PBR textures
+            pbr_col = modern_tex_box.column()
+            pbr_col.label(text="PBR Textures:")
+            metallic_row = pbr_col.row()
+            metallic_row.prop(layer_props.texture_maps, "metallic_texture", text="Metallic")
+            metallic_row.prop(layer_props.texture_maps, "metallic_channels", text="Channels")
+            
+            roughness_row = pbr_col.row()
+            roughness_row.prop(layer_props.texture_maps, "roughness_texture", text="Roughness")
+            roughness_row.prop(layer_props.texture_maps, "roughness_channels", text="Channels")
+            
+            # Validation settings (collapsible)
+            if layer_props.texture_maps.validation_enabled:
+                validation_col = modern_tex_box.column()
+                validation_col.label(text="Validation Settings:")
+                validation_col.prop(layer_props.texture_maps, "validate_texture_existence", text="Check File Existence")
+                validation_col.prop(layer_props.texture_maps, "validate_texture_formats", text="Check File Formats")
+                validation_col.prop(layer_props.texture_maps, "validate_texture_resolution", text="Check Resolution")
+            
+            # Blender integration settings (collapsible)
+            if layer_props.texture_maps.blender_material_integration:
+                integration_col = modern_tex_box.column()
+                integration_col.label(text="Blender Integration Settings:")
+                integration_col.prop(layer_props.texture_maps, "auto_detect_principled_bsdf", text="Auto-detect Principled BSDF")
+                integration_col.prop(layer_props.texture_maps, "auto_detect_normal_map_nodes", text="Auto-detect Normal Maps")
+                integration_col.prop(layer_props.texture_maps, "auto_detect_image_texture_nodes", text="Auto-detect Image Textures")
 
         if canHaveDraped:
             tex_box.prop(layer_props, "texture_draped", text="Draped")

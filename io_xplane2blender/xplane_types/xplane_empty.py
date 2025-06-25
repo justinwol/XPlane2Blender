@@ -8,6 +8,9 @@ from io_xplane2blender.xplane_config import getDebug
 from io_xplane2blender.xplane_constants import *
 from io_xplane2blender.xplane_helpers import floatToStr, logger
 from io_xplane2blender.xplane_types import XPlaneObject
+from io_xplane2blender.xplane_utils.xplane_gear_detection import apply_auto_configuration
+from io_xplane2blender.xplane_utils.xplane_gear_validation import validate_gear_object
+from io_xplane2blender.xplane_utils.xplane_gear_animation import auto_detect_gear_animation_setup
 
 
 class XPlaneEmpty(XPlaneObject):
@@ -19,6 +22,7 @@ class XPlaneEmpty(XPlaneObject):
     def collect(self) -> None:
         super().collect()
         special_empty_props = self.blenderObject.xplane.special_empty_props
+        
         if special_empty_props.special_type == EMPTY_USAGE_MAGNET:
             magnet_props = special_empty_props.magnet_props
             magnet_props.debug_name = magnet_props.debug_name.strip()
@@ -46,6 +50,67 @@ class XPlaneEmpty(XPlaneObject):
                 if self.magnet_type:
                     self.magnet_type += "|"
                 self.magnet_type += "flashlight"
+        
+        elif special_empty_props.special_type == EMPTY_USAGE_WHEEL:
+            # Landing gear validation and auto-configuration
+            wheel_props = special_empty_props.wheel_props
+            
+            # Apply auto-detection if enabled
+            if wheel_props.auto_detect_gear:
+                try:
+                    apply_auto_configuration(self.blenderObject)
+                except Exception as e:
+                    logger.warning(f"Auto-detection failed for gear '{self.blenderObject.name}': {e}")
+            
+            # Validate gear configuration if validation is enabled
+            if wheel_props.validation_enabled:
+                try:
+                    validation_result = validate_gear_object(self.blenderObject)
+                    
+                    # Log validation errors
+                    for error in validation_result.errors:
+                        logger.error(str(error))
+                    
+                    # Log validation warnings
+                    for warning in validation_result.warnings:
+                        logger.warning(str(warning))
+                    
+                    # Log validation info (only in debug mode)
+                    if getDebug():
+                        for info in validation_result.info:
+                            logger.info(str(info))
+                            
+                except Exception as e:
+                    logger.warning(f"Gear validation failed for '{self.blenderObject.name}': {e}")
+            
+            # Auto-detect animation setup if retraction or doors are enabled
+            if wheel_props.enable_retraction or wheel_props.enable_doors:
+                try:
+                    animation_setup = auto_detect_gear_animation_setup(self.blenderObject)
+                    if animation_setup and getDebug():
+                        logger.info(f"Detected animation setup for gear '{self.blenderObject.name}'")
+                except Exception as e:
+                    logger.warning(f"Animation detection failed for gear '{self.blenderObject.name}': {e}")
+            
+            # Validate gear index and wheel index ranges
+            if wheel_props.gear_index < 0 or wheel_props.gear_index > MAX_GEAR_INDEX:
+                logger.error(
+                    f"Gear '{self.blenderObject.name}' has invalid gear index {wheel_props.gear_index}. "
+                    f"Must be between 0 and {MAX_GEAR_INDEX}"
+                )
+            
+            if wheel_props.wheel_index < 0 or wheel_props.wheel_index > MAX_WHEEL_INDEX:
+                logger.error(
+                    f"Gear '{self.blenderObject.name}' has invalid wheel index {wheel_props.wheel_index}. "
+                    f"Must be between 0 and {MAX_WHEEL_INDEX}"
+                )
+            
+            # Validate export type compatibility
+            if self.xplaneBone.xplaneFile.options.export_type != EXPORT_TYPE_AIRCRAFT:
+                logger.warning(
+                    f"Landing gear '{self.blenderObject.name}' is typically used with Aircraft export type, "
+                    f"but current export type is {self.xplaneBone.xplaneFile.options.export_type}"
+                )
 
     def write(self) -> str:
         """

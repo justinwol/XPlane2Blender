@@ -19,13 +19,13 @@ import bpy
 
 # Contains informations for Blender to recognize and categorize the addon.
 bl_info = {
-    "name": "XPlane2Blender Export for X-Plane OBJs",
-    "description": "Export X-Plane objects/planes (.obj format)",
+    "name": "XPlane2Blender Export for X-Plane 12+ OBJs",
+    "description": "Export X-Plane 12+ objects/planes (.obj format) - Modernized for X-Plane 12+ and Blender 4+",
     "author": "Ted Greene, Ben Supnik, Amy Parent, Maya F. Eroglu",
-    "version": (4, 3, 4),
-    "blender": (2, 80, 0),
+    "version": (5, 0, 0),
+    "blender": (4, 0, 0),
     "location": "File > Import/Export > X-Plane",
-    "warning": "",
+    "warning": "Requires X-Plane 12+ and Blender 4+",
     "wiki_url": "https://github.com/X-Plane/XPlane2Blender/wiki",
     "tracker_url": "https://github.com/X-Plane/XPlane2Blender/issues",
     "category": "Import-Export",
@@ -39,7 +39,6 @@ if "" not in locals():
     from . import xplane_ops
     from . import xplane_ops_dev
     from . import xplane_config
-    from . import xplane_updater
     from .xplane_utils import xplane_lights_txt_parser
     from .xplane_utils import xplane_wiper_gradient
 else:
@@ -50,7 +49,6 @@ else:
     xplane_ops     = importlib.reload(xplane_ops)
     xplane_ops_dev = importlib.reload(xplane_ops_dev)
     xplane_config  = importlib.reload(xplane_config)
-    xplane_updater = importlib.reload(xplane_updater)
     xplane_lights_txt_parser = importlib.reload(xplane_lights_txt_parser)
     xplane_wiper_gradient = importlib.reload(xplane_wiper_gradient)
 
