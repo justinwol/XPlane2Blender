@@ -26,8 +26,9 @@ bl_info = {
     "blender": (4, 0, 0),
     "location": "File > Import/Export > X-Plane",
     "warning": "Requires X-Plane 12+ and Blender 4+",
-    "wiki_url": "https://github.com/X-Plane/XPlane2Blender/wiki",
+    "doc_url": "https://github.com/X-Plane/XPlane2Blender/wiki",
     "tracker_url": "https://github.com/X-Plane/XPlane2Blender/issues",
+    "support": "COMMUNITY",
     "category": "Import-Export",
 }
 
