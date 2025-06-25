@@ -22,7 +22,7 @@ bl_info = {
     "name": "XPlane2Blender Export for X-Plane 12+ OBJs",
     "description": "Export X-Plane 12+ objects/planes (.obj format) - Modernized for X-Plane 12+ and Blender 4+",
     "author": "Ted Greene, Ben Supnik, Amy Parent, Maya F. Eroglu",
-    "version": (5, 0, 0),
+    "version": (5, 0, 1),
     "blender": (4, 0, 0),
     "location": "File > Import/Export > X-Plane",
     "warning": "Requires X-Plane 12+ and Blender 4+",
