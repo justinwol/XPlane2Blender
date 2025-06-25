@@ -5,6 +5,21 @@ All notable changes to XPlane2Blender will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2025-06-24
+
+### Removed
+- **Development File Cleanup**
+  - Removed temporary development files created during v5.0.x modernization process
+  - Cleaned up validation scripts: `test_addon_registration.py`, `test_bl_info_validation.py`, `test_blender4_xplane12_validation.py`, `test_complete_validation.py`, `test_critical_validation.py`, `test_export_debug.py`
+  - Removed legacy test runner: `tests.py` (replaced by permanent test infrastructure in `tests/` directory)
+  - Cleaned up documentation artifacts: `bl_info_modernization_report.md`, `validation_report.md`, `troubleshoot_legacy_designation.md`
+  - Preserved permanent test infrastructure in `tests/` directory for ongoing development
+
+### Technical Details
+- Cleanup maintains all production functionality while removing temporary development artifacts
+- Permanent test suite remains available via `tests/test_suite_runner.py`
+- All core addon features and documentation remain intact
+
 ## [5.0.0] - 2025-06-24
 
 ### Major Modernization Release

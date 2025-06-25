@@ -23,6 +23,11 @@ Extract the zip and place the `io_xplane2blender` folder in your Blender addons 
 - **Repository**: Updated links to https://github.com/justinwol/XPlane2Blender
 - **Documentation**: Updated to point to the correct fork
 - **Bug Reports**: Issue tracking moved to the maintained repository
+### Development Cleanup:
+- **Temporary Files Removed**: Cleaned up development artifacts from v5.0.x modernization process
+- **Test Infrastructure**: Permanent test suite maintained in `tests/` directory
+- **Documentation**: Removed temporary validation reports and troubleshooting files
+- **Streamlined Codebase**: Repository now contains only production-ready files
 
 ### Key Features (from v5.0.x series):
 - **X-Plane 12+ Support**: Enhanced rain system, landing gear animations, texture validation

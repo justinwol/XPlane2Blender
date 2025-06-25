@@ -49,8 +49,8 @@ See the [Introduction to XPlane2Blender Video](https://developer.x-plane.com/too
 ## Test Suite
 **The average user does not need the test suite.** Before releasing a build to the public we test the code many many many times! This is only useful for developers and power users who make changes to the source code. The tests folder must also be in the same folder as the addon folder (see manual installation).
 
-If you have Python installed (hopefully matching Blender's internal interpreter for maximum stability) and the **full source code** downloaded, you can run the test suite. It will attempt to export sample .blend files that utilize various features of the exporter and print the results (see the contents of the ``test`` folder). All passing means XPlane2Blender is safe to use. In the XPlane2Blender folder, open up a command line and run
+If you have Python installed (hopefully matching Blender's internal interpreter for maximum stability) and the **full source code** downloaded, you can run the test suite. It will attempt to export sample .blend files that utilize various features of the exporter and print the results (see the contents of the ``tests`` folder). All passing means XPlane2Blender is safe to use. In the XPlane2Blender folder, open up a command line and run
 
-``python tests.py --print-fails``
+``python tests/test_suite_runner.py --print-fails``
 
 This will run all tests until the end or a failure occurs. Only detailed logs will be printed for the failed test. See ``--help`` to show all flags and what they do.
