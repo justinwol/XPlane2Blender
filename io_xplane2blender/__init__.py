@@ -21,13 +21,13 @@ import bpy
 bl_info = {
     "name": "XPlane2Blender Export for X-Plane 12+ OBJs",
     "description": "Export X-Plane 12+ objects/planes (.obj format) - Modernized for X-Plane 12+ and Blender 4+",
-    "author": "Ted Greene, Ben Supnik, Amy Parent, Maya F. Eroglu",
-    "version": (5, 0, 1),
+    "author": "Justin Wolverton (Original: Ted Greene, Ben Supnik, Amy Parent, Maya F. Eroglu)",
+    "version": (5, 0, 2),
     "blender": (4, 0, 0),
     "location": "File > Import/Export > X-Plane",
     "warning": "Requires X-Plane 12+ and Blender 4+",
-    "doc_url": "https://github.com/X-Plane/XPlane2Blender/wiki",
-    "tracker_url": "https://github.com/X-Plane/XPlane2Blender/issues",
+    "doc_url": "https://github.com/justinwol/XPlane2Blender/wiki",
+    "tracker_url": "https://github.com/justinwol/XPlane2Blender/issues",
     "support": "COMMUNITY",
     "category": "Import-Export",
 }
